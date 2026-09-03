@@ -35,6 +35,14 @@ token*.json
 *.pem
 *.key
 
+# --- MySQL load staging ----------------------------------------------------
+# Mirrors the SAS ODA layout: what 01b_export_csv.sas writes to output/csv/
+# there is downloaded to output/csv/ here. Roughly 2 GB, fully regenerable.
+# The directory itself stays in the repo because sql/02_load.sql resolves its
+# path with $(pwd).
+output/csv/*
+!output/csv/README.md
+
 # --- Local databases -------------------------------------------------------
 *.db
 *.sqlite
