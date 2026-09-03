@@ -318,10 +318,10 @@ GROUP  BY primaryid;
 --                      would attribute every reaction on a polypharmacy case
 --                      to the GLP-1.
 --   prod_ai LIKE '%<molecule>%' - catches multi-ingredient products, which
---                      FAERS stores backslash-separated. See the matching
---                      note in 01_ddl.sql section 3: this is intentionally
---                      broader than the exact IN list in sas/00_config.sas,
---                      and Q3.2 measures the difference.
+--                      FAERS stores backslash-separated. sas/00_config.sas
+--                      applies the same substring rule via %glp1_match(),
+--                      so the SAS and MySQL cohorts agree. Q3.2 is the
+--                      standing check that they still do.
 --
 -- Grain: one row per (report, molecule). A case naming two GLP-1s as primary
 -- suspect produces two rows, so always count with COUNT(DISTINCT primaryid).
@@ -418,16 +418,21 @@ ORDER  BY n_reports DESC;
 
 
 -- ---------------------------------------------------------------------------
--- Q3.2  How much does the LIKE cohort add over an exact-match cohort?
+-- Q3.2  What does substring matching pick up that equality would miss?
 --
--- Business question: the SQL cohort matches prod_ai with a wildcard while the
--- SAS config matches it exactly, so the two will not agree. Before anyone
--- notices the discrepancy in a review, quantify it: which prod_ai strings are
--- picked up only by the wildcard, and how many reports do they carry?
+-- Business question: which prod_ai strings enter the cohort only because the
+-- match is on substring rather than equality, and how many reports do they
+-- carry? These are the combination and compounded products.
 --
--- These are combination and compounded products. The right answer is a
--- decision, not a default - if they should be excluded, tighten ai_pattern in
--- ref_glp1_drug; if they belong, widen the SAS list to match.
+-- History: this query is why the SAS side changed. The original
+-- sas/00_config.sas matched prod_ai with an exact IN list and silently
+-- dropped every row this query returns. Reviewed 2026-09-03 - all genuine
+-- GLP-1 products, no false positives - and 00_config.sas was widened to a
+-- FIND-based substring match.
+--
+-- Keep running it. Adding a fifth molecule to ref_glp1_drug means re-checking
+-- that its name is not a substring of an unrelated ingredient, and this is
+-- the query that answers that.
 -- ---------------------------------------------------------------------------
 SELECT g.drug_label,
        dr.prod_ai                                           AS raw_prod_ai,

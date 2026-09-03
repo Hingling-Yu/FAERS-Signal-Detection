@@ -46,13 +46,13 @@ CREATE DATABASE IF NOT EXISTS faers
 
 -- Application account: full rights inside `faers`, nothing outside it.
 CREATE USER IF NOT EXISTS 'faers_app'@'localhost'
-    IDENTIFIED BY 'CHANGE_ME_BEFORE_RUNNING';
+    IDENTIFIED BY 'Yxl779900?';
 GRANT ALL PRIVILEGES ON faers.* TO 'faers_app'@'localhost';
 
 -- Read-only account for Tableau. A dashboard has no reason to hold write
 -- rights, and a separate credential makes the connection auditable.
 CREATE USER IF NOT EXISTS 'faers_ro'@'localhost'
-    IDENTIFIED BY 'CHANGE_ME_TOO';
+    IDENTIFIED BY 'Yxl779900?';
 GRANT SELECT ON faers.* TO 'faers_ro'@'localhost';
 
 FLUSH PRIVILEGES;
@@ -394,13 +394,19 @@ CREATE TABLE rpsr (
 -- instead of an edit in a dozen places, and the class definition becomes a
 -- reviewable artefact.
 --
--- Matching note (important, and it differs from the SAS side):
---   sas/00_config.sas matches prod_ai with an exact IN list. FAERS stores
---   multi-ingredient products as backslash-separated strings, e.g.
---   'SEMAGLUTIDE\CYANOCOBALAMIN' for compounded formulations, which an exact
---   match misses. The LIKE patterns below catch those. Expect the SQL case
---   count to run slightly above the SAS count; the difference is exactly the
---   combination products and is worth quantifying rather than hiding.
+-- Matching note:
+--   FAERS stores multi-ingredient products as backslash-separated strings,
+--   e.g. 'SEMAGLUTIDE\CYANOCOBALAMIN' for compounded formulations, so an
+--   equality test on prod_ai drops them without warning. The LIKE patterns
+--   below match on substring instead.
+--
+--   sas/00_config.sas originally used an exact IN list and so selected a
+--   narrower cohort. Q3.2 in 03_queries.sql listed exactly what the wildcard
+--   adds; reviewed 2026-09-03, all genuine GLP-1 combination and compounded
+--   products with no false positives, and the SAS side was widened to a
+--   FIND-based substring match to match. The two layers now select the same
+--   cohort and their case counts should reconcile - Q3.2 is retained as the
+--   standing check that they still do.
 -- ===========================================================================
 
 CREATE TABLE ref_glp1_drug (
