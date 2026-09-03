@@ -347,10 +347,15 @@ SET rpsr_cod = NULLIF(@rpsr_cod, '');
 SET SESSION unique_checks      = 1;
 SET SESSION foreign_key_checks = 1;
 
--- AFTER THIS LOAD: rerun section 3 of sql/03_queries.sql.
--- glp1_ps_case is a materialised cohort built from drug, and TRUNCATE above
--- did not touch it - so until it is rebuilt it describes the previous load
--- while every view on top of it reports the new one.
+-- AFTER THIS LOAD: rebuild the GLP-1 cohort.
+-- glp1_ps_case is materialised from drug, and TRUNCATE above did not touch
+-- it - so until it is rebuilt it describes the previous load while every view
+-- on top of it reports the new one. From the repo root:
+--
+--   { echo "USE faers;"; \
+--     awk '/^-- 2\. HELPER VIEWS/,/^-- 4\. DATA EXPLORATION/' \
+--         sql/03_queries.sql; } \
+--     | /usr/local/mysql/bin/mysql -u faers_app -p faers
 
 
 -- ===========================================================================
