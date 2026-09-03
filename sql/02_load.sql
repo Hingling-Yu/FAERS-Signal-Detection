@@ -42,6 +42,25 @@
 --
 -- Expected runtime: 10-25 minutes total, dominated by drug (6.3M rows).
 --
+-- IF IT STOPS PART WAY
+--   The mysql client aborts on the first error, so a failure in one LOAD
+--   leaves every table after it empty and the script exits before the
+--   verification block ever runs. Always read section 5's row counts before
+--   treating a load as done - silence is not success here.
+--
+--   To resume rather than restart, run one section at a time. Each LOAD in
+--   section 3 is self-contained and its table is truncated in section 2, so
+--   re-running a single table is safe:
+--
+--     sed "s|__CSV_DIR__|$(pwd)/output/csv|g" sql/02_load.sql > /tmp/load.sql
+--     # then paste the section you need, or:
+--     /usr/local/mysql/bin/mysql --local-infile=1 -u faers_app -p faers \
+--       -e "TRUNCATE TABLE drug;" 
+--     # ... followed by that table's LOAD DATA from /tmp/load.sql
+--
+--   Add --force to run the whole file through and collect every error at
+--   once instead of stopping at the first.
+--
 -- Author:   Hingling Yu
 -- Created:  2026-09-03
 -- ===========================================================================
@@ -56,21 +75,34 @@ USE faers;
 -- only UNIQUE keys are on tables whose uniqueness the SAS dedup already
 -- guarantees. Turning them off skips a per-row probe across 19M rows.
 --
--- autocommit off: one commit per table instead of one per row. The default
--- would fsync the redo log 6.3 million times loading drug alone.
+-- autocommit is deliberately NOT changed. Each LOAD DATA is a single
+-- statement and therefore already a single transaction - setting
+-- autocommit = 0 around it commits no less often and buys nothing, while
+-- leaving a transaction open across statements if the script stops early.
 --
 -- Strict SQL mode stays ON, deliberately. It is what turns a malformed date
 -- or an over-long string into a hard error instead of a silently truncated
 -- value - exactly the class of bug that is invisible until the analysis is
 -- already wrong. Every empty field is mapped to NULL explicitly below rather
 -- than relaxing the mode to let MySQL coerce '' into 0 or 0000-00-00.
+--
+-- What actually governs whether the 6.3M-row drug load survives is InnoDB
+-- sizing, not transaction settings. Check before a first run:
+--
+--   SELECT @@innodb_buffer_pool_size / 1024 / 1024 AS buffer_pool_mb;
+--
+-- The macOS default is 128 MB. A single LOAD DATA of 6.3M rows against that
+-- can exhaust the lock table (ERROR 1206) or crawl. Raising it to 2-4 GB for
+-- the duration of the load is the fix; see the appendix for the alternative
+-- if the server config cannot be changed.
 -- ===========================================================================
 
 SET SESSION unique_checks      = 0;
 SET SESSION foreign_key_checks = 0;
-SET SESSION autocommit         = 0;
 
-SELECT @@sql_mode AS sql_mode_in_effect, @@local_infile AS server_local_infile;
+SELECT @@sql_mode                          AS sql_mode_in_effect,
+       @@local_infile                      AS server_local_infile,
+       @@innodb_buffer_pool_size/1024/1024 AS buffer_pool_mb;
 
 
 -- ===========================================================================
@@ -123,8 +155,6 @@ LINES  TERMINATED BY '\n'
 IGNORE 1 LINES
 (caseid);
 
-COMMIT;
-
 
 -- ---------------------------------------------------------------------------
 -- 3.2 demo  (31 columns)
@@ -170,8 +200,6 @@ SET caseversion      = NULLIF(@caseversion, ''),
     fda_dt_prec      = NULLIF(@fda_dt_prec, ''),
     rept_dt_prec     = NULLIF(@rept_dt_prec, '');
 
-COMMIT;
-
 
 -- ---------------------------------------------------------------------------
 -- 3.3 drug  (22 columns) - the slow one, roughly 6.3M rows
@@ -207,8 +235,6 @@ SET drug_seq      = NULLIF(@drug_seq, ''),
     exp_dt        = NULLIF(@exp_dt, ''),
     exp_dt_prec   = NULLIF(@exp_dt_prec, '');
 
-COMMIT;
-
 
 -- ---------------------------------------------------------------------------
 -- 3.4 reac  (5 columns)
@@ -222,8 +248,6 @@ IGNORE 1 LINES
 (primaryid, caseid, quarter, @pt, @drug_rec_act)
 SET pt           = NULLIF(@pt, ''),
     drug_rec_act = NULLIF(@drug_rec_act, '');
-
-COMMIT;
 
 
 -- ---------------------------------------------------------------------------
@@ -239,8 +263,6 @@ IGNORE 1 LINES
 SET indi_drug_seq = NULLIF(@indi_drug_seq, ''),
     indi_pt       = NULLIF(@indi_pt, '');
 
-COMMIT;
-
 
 -- ---------------------------------------------------------------------------
 -- 3.6 outc  (4 columns)
@@ -253,8 +275,6 @@ LINES  TERMINATED BY '\n'
 IGNORE 1 LINES
 (primaryid, caseid, quarter, @outc_cod)
 SET outc_cod = NULLIF(@outc_cod, '');
-
-COMMIT;
 
 
 -- ---------------------------------------------------------------------------
@@ -276,8 +296,6 @@ SET dsg_drug_seq  = NULLIF(@dsg_drug_seq, ''),
     start_dt_prec = NULLIF(@start_dt_prec, ''),
     end_dt_prec   = NULLIF(@end_dt_prec, '');
 
-COMMIT;
-
 
 -- ---------------------------------------------------------------------------
 -- 3.8 rpsr  (4 columns)
@@ -291,8 +309,6 @@ IGNORE 1 LINES
 (primaryid, caseid, quarter, @rpsr_cod)
 SET rpsr_cod = NULLIF(@rpsr_cod, '');
 
-COMMIT;
-
 
 -- ===========================================================================
 -- 4. RESTORE SESSION SETTINGS
@@ -300,7 +316,6 @@ COMMIT;
 
 SET SESSION unique_checks      = 1;
 SET SESSION foreign_key_checks = 1;
-SET SESSION autocommit         = 1;
 
 -- AFTER THIS LOAD: rerun section 3 of sql/03_queries.sql.
 -- glp1_ps_case is a materialised cohort built from drug, and TRUNCATE above
