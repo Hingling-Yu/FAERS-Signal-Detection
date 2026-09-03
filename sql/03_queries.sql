@@ -22,8 +22,23 @@
 --   /usr/local/mysql/bin/mysql -u faers_app -p faers < sql/03_queries.sql
 --
 --   In practice this file is read query by query rather than executed whole.
---   Sections 2 and 3 do create persistent objects, so run those once before
+--   Sections 2 and 3 create persistent objects, so run those once before
 --   working interactively in the rest.
+--
+-- REBUILD after any reload of the base tables
+--   glp1_ps_case is materialised from drug, so a reload of drug leaves it
+--   describing the previous load while every view on top reports the new one.
+--   Sections 2 and 3 are idempotent - CREATE OR REPLACE VIEW and DROP TABLE
+--   IF EXISTS - so re-running just those is the refresh:
+--
+--     { echo "USE faers;"; \
+--       awk '/^-- 2\. HELPER VIEWS/,/^-- 4\. DATA EXPLORATION/' \
+--           sql/03_queries.sql; } \
+--       | /usr/local/mysql/bin/mysql -u faers_app -p faers
+--
+--   The awk range keys on the two section banners below; keep them intact if
+--   you renumber. It also runs Q3.1-Q3.3, so the cohort size and the
+--   substring-match review print as part of the rebuild.
 --
 -- Contents
 --   1  Warehouse profile and data-integrity checks
