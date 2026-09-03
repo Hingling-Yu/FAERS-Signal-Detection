@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# FAERS Signal Detection
+#
+# Rule of thumb: anything that can be regenerated from sas/ plus the raw FDA
+# extract stays out of version control. Anything that documents a decision or
+# proves data quality goes in.
+# ---------------------------------------------------------------------------
+
+# --- Raw FAERS ASCII extracts ---------------------------------------------
+# ~1.4 GB, and published by the FDA - not ours to redistribute.
+faers_ascii_*/
+raw-data/
+
+# --- Regenerable SAS output ------------------------------------------------
+output/clean/
+output/signal/
+output/tables/
+output/figures/
+output/logs/
+
+# Same categories wherever else they land
+*.sas7bdat
+*.log
+
+# output/qc/*.csv is deliberately NOT ignored: those few KB are the Gate
+# evidence chain (row counts, field widths, pipeline audit). Kept explicit so
+# a future broad rule such as output/* cannot silently drop them.
+!output/qc/*.csv
+
+# --- Credentials - never commit -------------------------------------------
+credentials.json
+token*.json
+*.env
+.env
+*.pem
+*.key
+
+# --- Local databases -------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Environments and caches ----------------------------------------------
+venv/
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# --- OS cruft --------------------------------------------------------------
+.DS_Store
+Thumbs.db
