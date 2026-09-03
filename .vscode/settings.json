@@ -1,0 +1,59 @@
+{
+  // ---------------------------------------------------------------------
+  // SQLTools connections for this project.
+  //
+  // Workspace-scoped on purpose: VS Code REPLACES array settings rather
+  // than merging them, so while this folder is open these are the only
+  // connections listed. Connections defined in your user settings (other
+  // projects) reappear as soon as you open a different folder.
+  //
+  // No password is stored here. "askForPassword" makes SQLTools prompt on
+  // first connect and offers to keep it in the OS keychain, which is why
+  // this file is safe to commit - a password in settings.json is plain
+  // text on disk and ends up in git the first time someone is careless.
+  // ---------------------------------------------------------------------
+  "sqltools.connections": [
+    {
+      // Default for everyday querying. SELECT-only, so a mistyped
+      // statement cannot damage the warehouse. Use this one unless you are
+      // deliberately creating something.
+      "name": "FAERS read-only",
+      "driver": "MySQL",
+      "server": "localhost",
+      "port": 3306,
+      "database": "faers",
+      "username": "faers_ro",
+      "askForPassword": true,
+      "connectionTimeout": 30,
+      "previewLimit": 200,
+      "mysqlOptions": { "authProtocol": "default", "enableSsl": "Disabled" }
+    },
+    {
+      // Full rights on the faers schema. Needed only to run 01_ddl.sql,
+      // 02_load.sql, or sections 2-3 of 03_queries.sql, which create the
+      // views and rebuild glp1_ps_case.
+      "name": "FAERS app (read-write)",
+      "driver": "MySQL",
+      "server": "localhost",
+      "port": 3306,
+      "database": "faers",
+      "username": "faers_app",
+      "askForPassword": true,
+      "connectionTimeout": 30,
+      "previewLimit": 200,
+      "mysqlOptions": { "authProtocol": "default", "enableSsl": "Disabled" }
+    }
+  ],
+
+  // A 6.3M-row table makes it easy to run something that never returns.
+  // 120s is long enough for the heavy profiling queries in 03_queries.sql
+  // section 4 and short enough to notice a runaway.
+  "sqltools.queryTimeout": 120000,
+
+  // Show the query and its timing above each result grid - useful when
+  // several results are open and they start to look alike.
+  "sqltools.results.location": "next",
+
+  "files.trimTrailingWhitespace": true,
+  "[sql]": { "editor.tabSize": 4 }
+}
