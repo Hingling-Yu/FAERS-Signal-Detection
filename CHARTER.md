@@ -143,6 +143,7 @@ FAERS-Signal-Detection/
 ├── sas/                              # All SAS programs
 │   ├── 00_config.sas                 #   Libname, paths, global settings
 │   ├── 01_import_clean.sas           #   Import all 7 tables + clean + dedup
+│   ├── 01b_export_csv.sas            #   Export CLEAN datasets to CSV for MySQL
 │   ├── 02_signal_engine.sas          #   Full-database PRR/ROR run
 │   ├── 02_positive_controls.sas      #   Validation against known signals
 │   ├── 03_glp1_extract.sas           #   Extract GLP-1 subset from full DB
@@ -163,6 +164,7 @@ FAERS-Signal-Detection/
 │   └── 03_queries.sql                #   Ad-hoc analysis queries
 │
 ├── output/
+│   ├── csv/                          #   MySQL staging area (gitignored)
 │   ├── tables/                       #   Signal tables, exports
 │   ├── figures/                      #   Any SAS SGPLOT output
 │   ├── logs/                         #   SAS .log files
