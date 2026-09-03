@@ -45,6 +45,13 @@
  *   Dates            YYYY-MM-DD via YYMMDD10., directly castable to MySQL DATE
  *   IDs              BEST16. so a 12-13 digit primaryid never renders in
  *                    scientific notation, which BEST12. would do
+ *   Backslash        DATA, not an escape character. FAERS separates the
+ *                    active ingredients of a combination product with it
+ *                    ('EMPAGLIFLOZIN\METFORMIN HYDROCHLORIDE'), and 344,323
+ *                    DRUG rows carry one. The MySQL side must therefore load
+ *                    with ESCAPED BY '' - see sql/02_load.sql section 3. At
+ *                    the MySQL default those backslashes are eaten and, where
+ *                    a quoted value ends in one, whole rows are lost.
  *
  * Author:   Hingling Yu
  * Created:  2026-09-03

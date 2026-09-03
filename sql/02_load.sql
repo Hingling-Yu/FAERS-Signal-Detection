@@ -132,7 +132,37 @@ TRUNCATE TABLE rpsr;
 --   dates already YYYY-MM-DD
 --   every missing value, numeric or character, is an empty field
 --
--- Why every column is read into a @variable and then SET:
+-- ESCAPED BY '' - the single most important clause in this file
+-- ---------------------------------------------------------------------------
+--   MySQL's LOAD DATA is not an RFC 4180 CSV reader. On top of quote
+--   handling it also applies backslash escape processing - and FAERS uses the
+--   backslash as the separator between the active ingredients of a
+--   combination product:
+--
+--       prod_ai = 'EMPAGLIFLOZIN\METFORMIN HYDROCHLORIDE'
+--
+--   Left at the default, MySQL silently ate that backslash across 344,323
+--   drug rows, merging two ingredient names into one that does not exist.
+--   The 19,472 values containing the sequence \N were additionally at risk
+--   of being read as SQL NULL.
+--
+--   It also lost whole rows. PROC EXPORT quotes any value containing a comma,
+--   so a dose_vbm ending in a backslash came out as "...\" - and MySQL read
+--   that closing quote as an escaped literal quote, never closed the field,
+--   and swallowed the following lines until it found another quote. Five such
+--   values cost 38 drug rows on the first load, with no error raised.
+--
+--   ESCAPED BY '' turns escape processing off entirely. That is the correct
+--   setting for PROC EXPORT output, which escapes an embedded quote by
+--   doubling it ("") - a convention MySQL still honours inside an enclosed
+--   field - and never uses the backslash as an escape. With this clause a
+--   backslash is data, which is all it ever was.
+--
+--   Section 5.7 is the check that this held. Row counts cannot catch a
+--   stripped backslash, so without it the corruption is invisible.
+--
+-- Why every column is read into a @variable and then SET
+-- ---------------------------------------------------------------------------
 --   PROC EXPORT writes a missing numeric as an empty field. Under strict mode
 --   an empty string bound directly to a BIGINT, DECIMAL or DATE column is an
 --   error, and under a relaxed mode it would become 0 or 0000-00-00 - a
@@ -150,7 +180,7 @@ TRUNCATE TABLE rpsr;
 LOAD DATA LOCAL INFILE '__CSV_DIR__/deleted_cases.csv'
 INTO TABLE deleted_cases
 CHARACTER SET utf8mb4
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' ESCAPED BY ''
 LINES  TERMINATED BY '\n'
 IGNORE 1 LINES
 (caseid);
@@ -162,7 +192,7 @@ IGNORE 1 LINES
 LOAD DATA LOCAL INFILE '__CSV_DIR__/demo.csv'
 INTO TABLE demo
 CHARACTER SET utf8mb4
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' ESCAPED BY ''
 LINES  TERMINATED BY '\n'
 IGNORE 1 LINES
 (primaryid, caseid, @caseversion, quarter,
@@ -208,7 +238,7 @@ SET caseversion      = NULLIF(@caseversion, ''),
 LOAD DATA LOCAL INFILE '__CSV_DIR__/drug.csv'
 INTO TABLE drug
 CHARACTER SET utf8mb4
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' ESCAPED BY ''
 LINES  TERMINATED BY '\n'
 IGNORE 1 LINES
 (primaryid, caseid, @drug_seq, quarter,
@@ -242,7 +272,7 @@ SET drug_seq      = NULLIF(@drug_seq, ''),
 LOAD DATA LOCAL INFILE '__CSV_DIR__/reac.csv'
 INTO TABLE reac
 CHARACTER SET utf8mb4
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' ESCAPED BY ''
 LINES  TERMINATED BY '\n'
 IGNORE 1 LINES
 (primaryid, caseid, quarter, @pt, @drug_rec_act)
@@ -256,7 +286,7 @@ SET pt           = NULLIF(@pt, ''),
 LOAD DATA LOCAL INFILE '__CSV_DIR__/indi.csv'
 INTO TABLE indi
 CHARACTER SET utf8mb4
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' ESCAPED BY ''
 LINES  TERMINATED BY '\n'
 IGNORE 1 LINES
 (primaryid, caseid, @indi_drug_seq, quarter, @indi_pt)
@@ -270,7 +300,7 @@ SET indi_drug_seq = NULLIF(@indi_drug_seq, ''),
 LOAD DATA LOCAL INFILE '__CSV_DIR__/outc.csv'
 INTO TABLE outc
 CHARACTER SET utf8mb4
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' ESCAPED BY ''
 LINES  TERMINATED BY '\n'
 IGNORE 1 LINES
 (primaryid, caseid, quarter, @outc_cod)
@@ -283,7 +313,7 @@ SET outc_cod = NULLIF(@outc_cod, '');
 LOAD DATA LOCAL INFILE '__CSV_DIR__/ther.csv'
 INTO TABLE ther
 CHARACTER SET utf8mb4
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' ESCAPED BY ''
 LINES  TERMINATED BY '\n'
 IGNORE 1 LINES
 (primaryid, caseid, @dsg_drug_seq, quarter,
@@ -303,7 +333,7 @@ SET dsg_drug_seq  = NULLIF(@dsg_drug_seq, ''),
 LOAD DATA LOCAL INFILE '__CSV_DIR__/rpsr.csv'
 INTO TABLE rpsr
 CHARACTER SET utf8mb4
-FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"'
+FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' ESCAPED BY ''
 LINES  TERMINATED BY '\n'
 IGNORE 1 LINES
 (primaryid, caseid, quarter, @rpsr_cod)
@@ -400,7 +430,32 @@ SELECT MIN(primaryid)             AS min_primaryid,
        COUNT(*)                   AS rows_total
 FROM   demo;
 
--- 5.6 Physical size, for planning. drug should dominate.
+-- 5.7 Backslash integrity - the check that row counts cannot make.
+--
+-- A silently stripped backslash changes no row count, so this is the only
+-- evidence that ESCAPED BY '' did its job. FAERS separates the active
+-- ingredients of a combination product with a backslash, so losing it merges
+-- two ingredient names into one nonexistent one.
+--
+-- Expected, counted directly from output/csv/drug.csv:
+--     prod_ai  containing a backslash   343,753
+--     drugname containing a backslash   147,673
+-- A result of 0 means escape processing was still on and the load must be
+-- redone. Anything else non-matching means the CSV changed.
+SELECT SUM(INSTR(prod_ai,  '\\') > 0) AS prod_ai_with_backslash,
+       SUM(INSTR(drugname, '\\') > 0) AS drugname_with_backslash,
+       343753                           AS prod_ai_expected,
+       147673                           AS drugname_expected
+FROM   drug;
+
+-- One concrete example, readable at a glance. prod_ai should come back as
+-- 'EMPAGLIFLOZIN\METFORMIN HYDROCHLORIDE', not run together.
+SELECT primaryid, drugname, prod_ai
+FROM   drug
+WHERE  drugname = 'SYNJARDY'
+LIMIT  3;
+
+-- 5.8 Physical size, for planning. drug should dominate.
 SELECT table_name,
        table_rows                                              AS approx_rows,
        ROUND(data_length   / 1024 / 1024, 1)                   AS data_mb,
