@@ -59,3 +59,12 @@ __pycache__/
 # --- OS cruft --------------------------------------------------------------
 .DS_Store
 Thumbs.db
+
+# --- Internal working docs -------------------------------------------------
+# Planning, status tracking and agent instructions. Useful locally, but they
+# are process notes rather than deliverables, so they stay off the public
+# repo. README.md remains the single entry point for anyone reading this
+# project from the outside.
+CLAUDE.md
+STATUS.md
+CHARTER.md
