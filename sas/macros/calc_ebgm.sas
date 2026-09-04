@@ -72,11 +72,11 @@
               converge * (1 + |objective|) - a RELATIVE test, because the
               objective is a weighted sum and so scales with the table.
               Default 1e-8.
-    truncate  1 (default) = condition the likelihood on the pair having
-              been reported, f(N|N>=1) = f(N)/(1 - f(0)). See ZERO
-              TRUNCATION. 0 uses the spec's plain mixture, which is
-              measurably biased on a table of observed pairs but is what
-              earlier runs used - keep it only to reproduce them.
+    truncate  0 (DEFAULT, and not the theoretically correct choice - read
+              ZERO TRUNCATION before changing it). 0 uses the spec's plain
+              mixture. 1 conditions on the pair having been reported,
+              f(N|N>=1) = f(N)/(1 - f(0)), which is right in theory and
+              degenerates on this database in practice.
     squash    1 (default) = fit the mixture on binned (a, E) cells rather
               than on every pair. See SQUASHING below. 0 fits on every row,
               which is 100x+ slower on a full-database table and was what
@@ -152,41 +152,68 @@
      precision.
 
   --------------------------------------------------------------------------
-  ZERO TRUNCATION - the one place this departs from the spec's formula
+  ZERO TRUNCATION - an open problem, and why the default is the wrong answer
   --------------------------------------------------------------------------
-  docs/spec_ebgm.md section 1.2 gives the marginal likelihood as a plain
-  two-component Negative Binomial mixture. That is the right likelihood for a
-  table that contains every drug x reaction cell. It is the WRONG likelihood
-  for the table this macro is actually handed.
+  This macro is handed only the pairs that were REPORTED. 02_signal_engine
+  builds them from an INNER JOIN, so a pair with a = 0 is not a row; it is
+  one of roughly 60 million cells (3,555 ingredients x 17,046 PTs) that never
+  appear. The spec's likelihood assumes those cells were sampled. It was not
+  written for this table, and it shows: the first full run fitted a
+  "background" component with mean alpha1/beta1 = 2.62, when that component
+  is the no-association bulk of the database and belongs near 1. Everything
+  sparse was shrunk toward 2.6, 19.8% of the database cleared EB05 >= 2, and
+  42% of those signals rested on fewer than three cases.
 
-  02_signal_engine.sas builds its pairs from an INNER JOIN, so a row exists
-  only where the pair was reported at least once. A pair with a = 0 is not a
-  row; it is one of the roughly 60 million cells (3,555 ingredients x 17,046
-  PTs on the 2025Q3-2026Q2 extract) that never appear. Fitting an untruncated
-  likelihood to that table asks the model to explain an absence of zeros that
-  was never in the data, and it does so by inflating every parameter.
+  The textbook correction is to condition on the pair having been observed,
+  f(N | N>=1) = f(N)/(1 - f(0)) - TRUNCATE=1 here. On simulated data it is
+  exactly right. Refitting tables drawn from a known prior of background mean
+  1.00 and signal mean 5.00:
 
-  The first full FAERS run showed exactly that: a "background" component with
-  mean alpha1/beta1 = 2.62, when that component is by definition the
-  no-association bulk of the database and belongs near 1. Everything sparse
-  was then shrunk toward 2.6 rather than toward 1, 19.8% of the database
-  cleared EB05 >= 2, and 42% of those signals rested on fewer than three
-  cases.
+      observed cells   plain NB (TRUNCATE=0)   truncated (TRUNCATE=1)
+      72%              1.123 / 5.24            1.003 / 5.11
+      42%              1.330 / 5.79            1.003 / 5.13
+      11%              7.432 / 1.84            1.003 / 4.90
+      3.3% (FAERS-shaped marginals)            0.991 / 4.96
 
-  So the likelihood here is conditioned on the pair having been observed:
+  On THIS database it collapses. Two runs, the second from five different
+  starting points with restarts, all reached the same place:
 
-      f(N | N >= 1, E) = f(N | E) / (1 - f(0 | E))
+      P = 0.9998   alpha1 = 1.2e-6   beta1 = 0.0084   -> prior mean 0.00014
+                   alpha2 = 0.280    beta2 = 0.423
 
-  which is what openEBGM uses, for this reason. Refitting simulated data with
-  a known prior of background mean 1.00 and signal mean 5.00:
+  All five starts returned an identical log-likelihood of -1,333,100, and
+  alpha1 wandered over orders of magnitude between runs without moving it.
+  That is a flat ridge, not a local trap: as alpha -> 0 the zero-truncated
+  Negative Binomial tends to a logarithmic series distribution, and the
+  optimiser is sitting on that boundary. The degenerate point IS the
+  truncated maximum likelihood estimate for this data.
 
-      observed cells   plain NB (the spec)   zero-truncated (this code)
-      72%              1.123 / 5.24          1.003 / 5.11
-      42%              1.330 / 5.79          1.003 / 5.13
-      18%              -                     0.995 / 4.74
-      11%              7.432 / 1.84          1.003 / 4.90
+  A posterior built on it is useless - Gamma(alpha1 + N, beta1 + E) with
+  alpha1 ~ 0 and beta1 = 0.0084 gives a single-case pair with a small E a
+  posterior mean near 1/(0.0084 + E), which is the opposite of shrinkage.
 
-  The bias grows with sparsity and the correction removes it at every level.
+  Why the simulations never showed it: they generate lambda from an actual
+  two-component Gamma mixture, so the model is correctly specified and the
+  tail is mild. Real FAERS is not. The top of this database carries pairs
+  like a = 328 against E = 0.19 - a raw ratio of 1,758, with the top twenty
+  reaching 18,000. No two-component Gamma can hold both that tail and the
+  bulk, and under truncation the fit resolves the conflict by degenerating.
+
+  So TRUNCATE defaults to 0: the biased fit, knowingly. It is the one that
+  produces a usable ranking, and its bias is measured and stated above rather
+  than hidden. Read the EBGM RANKING; do not read the EBGM signal COUNT as a
+  standalone screen.
+
+  Not yet tried, in the order worth trying:
+    1. Fit on the full table WITH the zero cells rather than conditioning
+       them away. Mathematically equivalent to truncation and equally
+       correct in simulation, but a different surface for an optimiser to
+       cross. The zero cells never need materialising - bin the drug and PT
+       marginals, and the cross product gives the count of cells per E bin.
+    2. Bound alpha away from 0 (say alpha >= 0.05), closing the degenerate
+       corner. A shape that small is not a background in any useful sense.
+    3. A three-component mixture, or a heavier-tailed prior, if the tail is
+       genuinely what breaks it.
 
   --------------------------------------------------------------------------
   NUMERICAL NOTES
@@ -230,7 +257,7 @@
                total_n=TOTAL_N);
   ==========================================================================*/
 %macro calc_ebgm(ds_in=, ds_out=, total_n=, max_iter=2000, converge=1e-8,
-                 squash=1, truncate=1, debug=0);
+                 squash=1, truncate=0, debug=0);
 
     %local i dsid rc var vnum vtype bad nval nin nout iml_ok nebgm _bgmean;
 
