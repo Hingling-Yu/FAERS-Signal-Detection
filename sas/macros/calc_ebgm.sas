@@ -912,7 +912,19 @@
       ----------------------------------------------------------------------*/
     %if %sysevalf(&_EBGM_B1 > 0) %then %do;
         %let _bgmean = %sysevalf(&_EBGM_A1 / &_EBGM_B1);
-        %put NOTE: [calc_ebgm] background component prior mean = &_bgmean (expect near 1).;
+%if &truncate %then %do;
+        %put NOTE: [calc_ebgm] background component prior mean = &_bgmean (should be near 1).;
+%end;
+%else %do;
+        /* Under TRUNCATE=0 a background near 1 is NOT what this fit produces,
+           and saying so would make a correct run look broken. The untruncated
+           likelihood is biased upward on a table of observed pairs - see ZERO
+           TRUNCATION - and lands near 2.6 on this database. That is the known
+           cost of the default, not a fault to chase. */
+        %put NOTE: [calc_ebgm] background component prior mean = &_bgmean;
+        %put NOTE: [calc_ebgm] TRUNCATE=0 biases this upward - near 1 is correct in theory,;
+        %put NOTE: [calc_ebgm] around 2.6 is what this database gives. See ZERO TRUNCATION.;
+%end;
 
         %if %sysevalf(&_bgmean < 0.2) or %sysevalf(&_bgmean > 5) %then %do;
             %put WARNING: [calc_ebgm] Background prior mean &_bgmean is implausible.;
