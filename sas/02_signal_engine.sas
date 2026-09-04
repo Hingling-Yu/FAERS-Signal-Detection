@@ -720,6 +720,26 @@ run;
         %put ERROR- Do not use SIGNAL.ALL_SIGNALS until this is resolved.;
     %end;
 
+    /* Gate 2b. Every pair here came from an INNER JOIN, so a >= 1 and both
+       marginals are positive on every row - which means EBGM is computable
+       on every row, and QC_EBEVAL must equal QC_PAIRS. A zero here does not
+       mean "no signals found", it means the EBGM step produced nothing at
+       all, and the run must not be read as a screen.
+
+       This gate exists because the first EBGM run hit exactly that: PROC IML
+       failed on an unresolved N, the five result columns were already
+       allocated missing, and a table of the right shape and the right row
+       count reached SIGNAL.ALL_SIGNALS with every EBGM cell empty. Row
+       counts and a clean %_count line were not enough to notice. */
+    %if &QC_EBEVAL = 0 %then %do;
+        %put ERROR: Gate 2b FAILED - EBGM is missing on all &QC_PAIRS pairs.;
+        %put ERROR- The MGPS step did not run. Check the PROC IML errors in this log.;
+    %end;
+    %else %if &QC_EBEVAL ne &QC_PAIRS %then %do;
+        %put WARNING: EBGM computable on &QC_EBEVAL of &QC_PAIRS pairs.;
+        %put WARNING- Expected all of them - every pair has a>=1 by construction.;
+    %end;
+
     /* A non-converged EM is not a hard failure - the last-iteration
        parameters still produce usable estimates - but the EBGM column is no
        longer reproducible from a stated fit, so it must not pass Gate 2b

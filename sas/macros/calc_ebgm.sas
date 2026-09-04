@@ -54,12 +54,11 @@
     ds_in     Required. Input dataset containing numeric a, n_drug, n_reac.
               All other input columns are carried through unchanged.
     ds_out    Required. Output dataset. May be the same as ds_in.
-    total_n   Required. The NAME of a macro variable holding the analysis
-              universe N - e.g. total_n=TOTAL_N, not total_n=&TOTAL_N.
-              Passing the name rather than the value means the macro can
-              report which variable it read, and a typo fails with a clear
-              "macro variable does not exist" instead of silently resolving
-              to an empty string.
+    total_n   Required. The NAME of a GLOBAL macro variable holding the
+              analysis universe N - e.g. total_n=TOTAL_N, not
+              total_n=&TOTAL_N. Resolved through DICTIONARY.MACROS, not
+              through &&&total_n; see the comment at the resolution step for
+              why that distinction is load-bearing.
     max_iter  EM iteration cap. Default 200.
     converge  EM stops when the log-likelihood stops changing in the first
               -log10(converge) significant digits - the test is RELATIVE,
@@ -201,7 +200,7 @@
   ==========================================================================*/
 %macro calc_ebgm(ds_in=, ds_out=, total_n=, max_iter=200, converge=1e-6, debug=0);
 
-    %local i dsid rc var vnum vtype bad nval nin nout iml_ok;
+    %local i dsid rc var vnum vtype bad nval nin nout iml_ok nebgm;
 
     %global _EBGM_P _EBGM_A1 _EBGM_B1 _EBGM_A2 _EBGM_B2
             _EBGM_ITER _EBGM_LL _EBGM_CONV _EBGM_NFIT;
@@ -228,15 +227,51 @@
         %return;
     %end;
 
-    /* TOTAL_N= carries a macro variable NAME, so &&&total_n is the value. */
-    %if %symexist(&total_n) = 0 %then %do;
-        %put ERROR: [calc_ebgm] Macro variable "&total_n" does not exist.;
-        %put ERROR- [calc_ebgm] TOTAL_N= takes a NAME, e.g. total_n=TOTAL_N.;
+    /*----------------------------------------------------------------------
+      Resolve the NAME in TOTAL_N= to its value.
+
+      The obvious &&&total_n is WRONG here, and wrong in a way that costs a
+      whole run. Macro variable names are case-insensitive, so the parameter
+      TOTAL_N= is itself a local macro variable named TOTAL_N holding the
+      string "TOTAL_N". It therefore SHADOWS the caller's global TOTAL_N:
+
+          &&&total_n  ->  & + "TOTAL_N"  ->  &TOTAL_N  ->  "TOTAL_N"
+
+      Both passes find the local parameter, so the result is the name again,
+      not the count. %SYMEXIST does not help - it finds the local too - and
+      the string sails through into PROC IML, where "N = TOTAL_N;" fails with
+      "Matrix has not been set to a value" and every EBGM column comes back
+      missing. Nesting a helper macro does not help either: macro scopes are
+      nested, so an inner macro still sees this one's locals.
+
+      DICTIONARY.MACROS names the scope explicitly, which is the one thing
+      that cannot be shadowed. The caller's N must be GLOBAL - in this
+      pipeline it is, because 02_signal_engine.sas creates TOTAL_N with a
+      PROC SQL INTO in open code.
+      ----------------------------------------------------------------------*/
+    proc sql noprint;
+        select value into :nval trimmed
+            from dictionary.macros
+            where upcase(name) = upcase("&total_n")
+              and scope = 'GLOBAL';
+    quit;
+
+    %if %length(&nval) = 0 %then %do;
+        %put ERROR: [calc_ebgm] No GLOBAL macro variable named "&total_n".;
+        %put ERROR- [calc_ebgm] TOTAL_N= takes a NAME, e.g. total_n=TOTAL_N,;
+        %put ERROR- [calc_ebgm] and that variable must be global when called.;
         %return;
     %end;
-    %let nval = &&&total_n;
 
-    %if %sysevalf(&nval <= 0) %then %do;
+    /* VERIFY rather than %SYSEVALF: %sysevalf on a non-numeric string does
+       not reliably fail, which is how the shadowing bug above stayed silent.
+       A case count is pure digits, so anything else is a hard stop. */
+    %if %sysfunc(verify(&nval, 0123456789)) > 0 %then %do;
+        %put ERROR: [calc_ebgm] &total_n resolved to "&nval", which is not a count.;
+        %return;
+    %end;
+
+    %if &nval <= 0 %then %do;
         %put ERROR: [calc_ebgm] &total_n = &nval - N must be a positive count.;
         %return;
     %end;
@@ -606,6 +641,26 @@
         %return;
     %end;
 
+    /* Backstop. A row count alone is not proof of a fit: the five result
+       vectors are allocated missing before the EM runs, so an error inside
+       PROC IML leaves a table of the right SHAPE full of nothing, and every
+       other check in this macro still passes. That is exactly how the
+       TOTAL_N shadowing bug reached a finished run. If the macro claims to
+       have fitted rows, it has to show estimates for some of them. */
+    %let nebgm = 0;
+    proc sql noprint;
+        select sum(not missing(EBGM)) into :nebgm trimmed
+            from work._ebgm_cols;
+    quit;
+
+    %if &nebgm = 0 or &nebgm = . %then %do;
+        %put ERROR: [calc_ebgm] The fit produced no EBGM values at all.;
+        %put ERROR- [calc_ebgm] Check the PROC IML errors above. &ds_out was not written.;
+        %return;
+    %end;
+
+    %put NOTE: [calc_ebgm] EBGM computed for %sysfunc(putn(&nebgm, comma16.)) of &nin rows.;
+
     /* Two SET statements, no BY: both datasets are read in step, row for
        row. A MERGE would need a key column that neither table has, and
        sorting a multi-million-row table to invent one would cost more than
@@ -675,13 +730,27 @@
        not a leak: its lambda was genuinely drawn near 2.9. A screen that
        flagged nothing from the ordinary pool would be one with no power.
 
-  Finally, note what is NOT verified here. Five mixture parameters cannot be
+  Note what is NOT verified here. Five mixture parameters cannot be
   identified from 26 rows, so the fit above is reproducible rather than
   statistically meaningful. The parameters that matter are the ones
   02_signal_engine.sas writes to qc_ebgm_model.csv on the full database.
+
+  --------------------------------------------------------------------------
+  WHY THE TEST VARIABLE IS CALLED TOTAL_N
+  --------------------------------------------------------------------------
+  It has to be the same name 02_signal_engine.sas passes. TOTAL_N= takes a
+  macro variable NAME, and the one input that breaks name resolution is a
+  name identical to the parameter's own - which is precisely the production
+  call. An earlier version of this test used TEST_N, could not collide, and
+  passed green while the real engine run silently wrote 753,594 rows of
+  missing EBGM. A unit test on a shape the caller never uses tests nothing.
+
+  Leaving %let TOTAL_N = 100000 here is safe: the engine %includes this file
+  in section 1, and section 3 overwrites TOTAL_N from the data before any
+  measure is computed.
   ==========================================================================*/
 /*
-%let TEST_N = 100000;
+%let TOTAL_N = 100000;
 
 data work._test_ebgm;
     length pair $15;
@@ -718,7 +787,7 @@ GUARD_NREAC0      5    100       0
 ;
 run;
 
-%calc_ebgm(ds_in=work._test_ebgm, ds_out=work._test_ebgm_out, total_n=TEST_N);
+%calc_ebgm(ds_in=work._test_ebgm, ds_out=work._test_ebgm_out, total_n=TOTAL_N);
 
 proc print data=work._test_ebgm_out noobs label;
     var pair a n_drug n_reac E RR EBGM EB05 EB95;
