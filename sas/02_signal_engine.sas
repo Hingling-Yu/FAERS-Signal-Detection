@@ -388,12 +388,18 @@ quit;
     carries the case-count floor.
 
   signal_ebgm - the FDA / MGPS criterion: EB05 >= 2, i.e. the 5th percentile
-    of the posterior still sits at twice the expected count. It carries no
-    minimum case count either, and unlike signal_ror it does not need one:
-    the Bayesian shrinkage already pulls a one-case pair back toward 1, so a
-    sparse pair cannot reach EB05 >= 2 on its own. That is the whole point of
-    the method, and section 7 checks it holds on this database rather than
-    taking it on faith.
+    of the posterior still sits at twice the expected count.
+
+    It carries no minimum case count. An earlier version of this comment
+    claimed it did not need one, because shrinkage would pull a sparse pair
+    back toward 1 by itself. THE FIRST FULL RUN REFUTED THAT: 62,484 of the
+    149,297 EBGM signals - 42% - sit below a = 3. Section 7 measured it
+    rather than trusting the claim, which is the only reason it was caught.
+
+    The cause is a known defect in the fit, not in this flag. See the
+    ZERO-TRUNCATION note in the section 7 header. Until that is resolved,
+    treat signal_ebgm as over-inclusive and read it alongside a, not on its
+    own.
 
     The threshold is written literally rather than pulled from 00_config.sas
     because 2 is not a tuning knob here - it is the published FDA screening
@@ -476,6 +482,44 @@ quit;
 
 /*==========================================================================
   7. QC SUMMARY
+  --------------------------------------------------------------------------
+  KNOWN DEFECT - ZERO TRUNCATION IN THE MGPS FIT  (open at Gate 2b)
+
+  The first full run fitted a background component with mean alpha1/beta1 =
+  1.252/0.477 = 2.62. In a correct MGPS fit that component sits near 1: it is
+  the "no association" bulk of the database. A background centred at 2.6
+  means every sparse pair is shrunk toward 2.6 rather than toward 1, which is
+  why 149,297 pairs (19.8% of the database) clear EB05 >= 2 and why 42% of
+  them rest on fewer than 3 cases.
+
+  The cause is that this engine only ever hands %calc_ebgm the pairs it
+  OBSERVED. A pair with a = 0 is not a row in SIGNAL.ALL_SIGNALS - it is one
+  of the roughly 60 million (3,555 drugs x 17,046 PTs) cells that never
+  appear. The likelihood in docs/spec_ebgm.md section 1.2 is the plain
+  Negative Binomial mixture, which assumes the zero cells were in the sample.
+  Fitting it to a table that excludes them biases every parameter upward, and
+  the bias grows with sparsity.
+
+  Measured on simulated data with a known prior of background mean 1.00 and
+  signal mean 5.00:
+
+      observed cells    plain NB (this code)      zero-truncated NB
+      72%               1.123 / 5.24              1.003 / 5.12
+      42%               1.330 / 5.79              1.003 / 5.14
+      11%               7.432 / 1.84              1.015 / 2.02
+
+  This database is far sparser than any of those rows, which is consistent
+  with the 2.62 seen in the real fit.
+
+  The fix is the zero-truncated likelihood, f(N | N>=1) = f(N) / (1 - f(0)),
+  which is what openEBGM uses for exactly this reason. It is NOT yet
+  implemented: it changes the analytical definition of the estimator, so it
+  is a Gate 2b decision, and the EM variant tested so far recovers the
+  background component but not the full mixture.
+
+  Until it is resolved: EBGM RANKING is sound - the top of the table is
+  dominated by genuine labelled associations - but the EBGM SIGNAL COUNT is
+  inflated and signal_ebgm must not be read as a standalone screen.
   ==========================================================================*/
 proc sql noprint;
     select count(*)                                    into :QC_PAIRS    trimmed
@@ -496,10 +540,10 @@ proc sql noprint;
         from signal.all_signals
         where signal_ror = 1 and a < &MIN_CASES;
 
-    /* EBGM block. QC_EBGM_THIN is the claim in section 6 put to the test:
-       if shrinkage really does protect against sparse cells, almost none of
-       the EBGM signals should sit below the case-count floor that Evans has
-       to impose by hand. */
+    /* EBGM block. QC_EBGM_THIN was written to test the claim in section 6
+       that shrinkage protects against sparse cells on its own. On the first
+       full run it came back at 62,484 of 149,297 EBGM signals, so the claim
+       is false on this database and the metric earned its place. */
     select sum(ebgm_evaluable)                         into :QC_EBEVAL   trimmed
         from signal.all_signals;
     select sum(signal_ebgm)                            into :QC_EBGM     trimmed
@@ -556,7 +600,7 @@ data work.qc_signal;
 
     metric = "EBGM signals with a < &MIN_CASES";
     value  = &QC_EBGM_THIN;
-    note   = 'Should be near 0 - shrinkage replaces the floor'; output;
+    note   = 'HIGH - the prior is mis-specified, see qc_ebgm_model.csv'; output;
 
     metric = 'Signals - all three criteria';
     value  = &QC_ALL3;

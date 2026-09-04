@@ -30,9 +30,18 @@
  *           so every pair is shrunk toward the overall distribution by an
  *           amount that depends on how much evidence that pair actually
  *           carries. Large-count pairs barely move; single-case pairs
- *           collapse toward 1. This is the method FDA's own FAERS screening
- *           runs, which is why EB05 >= 2 is the criterion a regulator
- *           recognises.
+ *           collapse toward the fitted background. This is the method FDA's
+ *           own FAERS screening runs, which is why EB05 >= 2 is the
+ *           criterion a regulator recognises.
+ *
+ * KNOWN DEFECT (open at Gate 2b): the likelihood below is the plain NB
+ *           mixture from the spec, which assumes the zero cells are in the
+ *           sample. Callers pass only OBSERVED pairs (a >= 1), so the fit is
+ *           biased upward and the background component lands well above 1 -
+ *           2.62 on the first full FAERS run. Ranking is unaffected; the
+ *           count of pairs clearing EB05 >= 2 is inflated. The fix is the
+ *           zero-truncated likelihood f(N | N>=1) = f(N)/(1 - f(0)). See the
+ *           section 7 header of 02_signal_engine.sas for the measurements.
  *
  * Requires: SAS/IML (licensed on SAS OnDemand for Academics). Beyond that
  *           the macro is free of libname / path dependencies, so it can be
