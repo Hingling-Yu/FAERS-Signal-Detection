@@ -1,0 +1,15 @@
+metric,value,note
+Drug x reaction pairs evaluated,753594,"One row per prod_ai x PT, PS drugs only"
+Pairs with computable PRR and ROR,748122,"Remainder had a zero cell - not evaluable, not cleared"
+Signals - Evans criteria,127196,"a>=3, PRR>=2, chi2>=4"
+Signals - ROR lower CI bound > 1,354385,No minimum case count applied
+Signals - both PRR and ROR criteria,126492,Intersection of the two frequentist criteria
+ROR signals with a < 3,222198,"Sparse-cell ROR flags, excluded by Evans"
+Pairs with computable EBGM,753594,Needs a>0 only - more pairs than PRR/ROR can evaluate
+EBGM fitted with zero truncation (1 = yes),0,"0 = spec mixture, biased upward; see calc_ebgm.sas ZERO TRUNCATION"
+Signals - EBGM (EB05 >= 2),149520,"FDA MGPS criterion, no case-count floor applied"
+EBGM signals with a < 3,62488,"Not near 0 - the untruncated prior sits at 2.66, not 1"
+Signals - all three criteria,86850,"Evans AND ROR AND EBGM, the most defensible subset"
+Analysis universe N (cases),1529453,PS case with at least one coded PT
+PS cases in CLEAN.DRUG,1529453,Difference from N = PS cases with no coded PT
+Inconsistent 2x2 rows,0,Must be 0 - see section 4c assertion

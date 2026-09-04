@@ -574,13 +574,21 @@ data work.qc_signal;
     value  = &QC_EBEVAL;
     note   = 'Needs a>0 only - more pairs than PRR/ROR can evaluate'; output;
 
+    /* Which likelihood produced every EBGM number below. The two fits
+       disagree completely - background prior mean 2.66 against 0.00014 - so
+       the counts cannot be read, or compared with another run, without it.
+       qc_ebgm_model.csv carries the same flag next to the parameters. */
+    metric = 'EBGM fitted with zero truncation (1 = yes)';
+    value  = &_EBGM_TRUNC;
+    note   = '0 = spec mixture, biased upward; see calc_ebgm.sas ZERO TRUNCATION'; output;
+
     metric = 'Signals - EBGM (EB05 >= 2)';
     value  = &QC_EBGM;
     note   = 'FDA MGPS criterion, no case-count floor applied'; output;
 
     metric = "EBGM signals with a < &MIN_CASES";
     value  = &QC_EBGM_THIN;
-    note   = 'Was 42% under the untruncated fit - compare against that'; output;
+    note   = 'Not near 0 - the untruncated prior sits at 2.66, not 1'; output;
 
     metric = 'Signals - all three criteria';
     value  = &QC_ALL3;

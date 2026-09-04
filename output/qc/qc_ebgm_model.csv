@@ -1,0 +1,15 @@
+parameter,value,note
+Mixing weight P,0.752896,Prior probability a pair is background (component 1)
+alpha1 (background shape),1.238644,Component 1 prior mean = alpha1 / beta1
+beta1 (background rate),0.465641,Larger beta1 = tighter background around its mean
+alpha2 (signal shape),0.623752,Component 2 prior mean = alpha2 / beta2
+beta2 (signal rate),0.010065,Larger beta2 = tighter signal component
+Zero-truncated likelihood (1 = yes),0,"0 = the spec mixture, biased upward here; see calc_ebgm.sas"
+Background prior mean (alpha1/beta1),2.6600836267,Near 1 if truncated; around 2.6 is the cost of truncate=0
+Signal prior mean (alpha2/beta2),61.972379533,The tail component the mixture reserves for real signal
+Simplex iterations (final restart),58,"Cap = 2000; the fit is 5 starts, each restarted once"
+Fit converged (1 = yes),1,Must be 1 - otherwise the prior is not a fit
+Final log-likelihood,-2132038,"NB mixture log-likelihood at the optimum, all five starts agreed"
+Pairs used in the fit,753594,Rows with a>0 and positive marginals
+Squashed bins the fit saw,11437,"Pairs binned by (a, E); EBGM itself is still per pair"
+Mean shrinkage EBGM / RR,0.795605,1 = no shrinkage; lower = prior pulling harder
