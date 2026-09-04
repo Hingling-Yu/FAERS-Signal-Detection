@@ -390,16 +390,13 @@ quit;
   signal_ebgm - the FDA / MGPS criterion: EB05 >= 2, i.e. the 5th percentile
     of the posterior still sits at twice the expected count.
 
-    It carries no minimum case count. An earlier version of this comment
-    claimed it did not need one, because shrinkage would pull a sparse pair
-    back toward 1 by itself. THE FIRST FULL RUN REFUTED THAT: 62,484 of the
-    149,297 EBGM signals - 42% - sit below a = 3. Section 7 measured it
-    rather than trusting the claim, which is the only reason it was caught.
-
-    The cause is a known defect in the fit, not in this flag. See the
-    ZERO-TRUNCATION note in the section 7 header. Until that is resolved,
-    treat signal_ebgm as over-inclusive and read it alongside a, not on its
-    own.
+    It carries no minimum case count. Whether it NEEDS one is the question
+    QC_EBGM_THIN below exists to answer, and the answer is not assumed here.
+    On the first full run - fitted with an untruncated likelihood - 42% of
+    EBGM signals sat below a = 3, which refuted the claim that shrinkage
+    replaces the floor. That fit has since been corrected (see the ZERO
+    TRUNCATION note in the section 7 header). Read the metric, not this
+    comment, for what the current fit does.
 
     The threshold is written literally rather than pulled from 00_config.sas
     because 2 is not a tuning knob here - it is the published FDA screening
@@ -483,43 +480,25 @@ quit;
 /*==========================================================================
   7. QC SUMMARY
   --------------------------------------------------------------------------
-  KNOWN DEFECT - ZERO TRUNCATION IN THE MGPS FIT  (open at Gate 2b)
+  ZERO TRUNCATION - read this before comparing against an earlier run
+  --------------------------------------------------------------------------
+  The first full EBGM run fitted a background component with mean
+  alpha1/beta1 = 2.62. That component is by definition the no-association
+  bulk of the database and belongs near 1. Everything sparse was therefore
+  shrunk toward 2.6, 19.8% of the database cleared EB05 >= 2, and 42% of
+  those signals rested on fewer than three cases - which the QC metric
+  below caught.
 
-  The first full run fitted a background component with mean alpha1/beta1 =
-  1.252/0.477 = 2.62. In a correct MGPS fit that component sits near 1: it is
-  the "no association" bulk of the database. A background centred at 2.6
-  means every sparse pair is shrunk toward 2.6 rather than toward 1, which is
-  why 149,297 pairs (19.8% of the database) clear EB05 >= 2 and why 42% of
-  them rest on fewer than 3 cases.
+  The cause was the likelihood, not the data. This engine only ever hands
+  %calc_ebgm the pairs it OBSERVED: a pair with a = 0 is not a row, it is one
+  of the roughly 60 million (3,555 ingredients x 17,046 PTs) cells that never
+  appear. The spec's plain Negative Binomial mixture assumes those cells were
+  sampled, so fitting it here inflated every parameter.
 
-  The cause is that this engine only ever hands %calc_ebgm the pairs it
-  OBSERVED. A pair with a = 0 is not a row in SIGNAL.ALL_SIGNALS - it is one
-  of the roughly 60 million (3,555 drugs x 17,046 PTs) cells that never
-  appear. The likelihood in docs/spec_ebgm.md section 1.2 is the plain
-  Negative Binomial mixture, which assumes the zero cells were in the sample.
-  Fitting it to a table that excludes them biases every parameter upward, and
-  the bias grows with sparsity.
-
-  Measured on simulated data with a known prior of background mean 1.00 and
-  signal mean 5.00:
-
-      observed cells    plain NB (this code)      zero-truncated NB
-      72%               1.123 / 5.24              1.003 / 5.12
-      42%               1.330 / 5.79              1.003 / 5.14
-      11%               7.432 / 1.84              1.015 / 2.02
-
-  This database is far sparser than any of those rows, which is consistent
-  with the 2.62 seen in the real fit.
-
-  The fix is the zero-truncated likelihood, f(N | N>=1) = f(N) / (1 - f(0)),
-  which is what openEBGM uses for exactly this reason. It is NOT yet
-  implemented: it changes the analytical definition of the estimator, so it
-  is a Gate 2b decision, and the EM variant tested so far recovers the
-  background component but not the full mixture.
-
-  Until it is resolved: EBGM RANKING is sound - the top of the table is
-  dominated by genuine labelled associations - but the EBGM SIGNAL COUNT is
-  inflated and signal_ebgm must not be read as a standalone screen.
+  %calc_ebgm now conditions on the pair having been reported at all,
+  f(N | N>=1) = f(N) / (1 - f(0)). Expect the numbers below to move: a
+  background component near 1, and a smaller, better-behaved EBGM signal
+  count. The macro header carries the validation against a known prior.
   ==========================================================================*/
 proc sql noprint;
     select count(*)                                    into :QC_PAIRS    trimmed
@@ -541,9 +520,10 @@ proc sql noprint;
         where signal_ror = 1 and a < &MIN_CASES;
 
     /* EBGM block. QC_EBGM_THIN was written to test the claim in section 6
-       that shrinkage protects against sparse cells on its own. On the first
-       full run it came back at 62,484 of 149,297 EBGM signals, so the claim
-       is false on this database and the metric earned its place. */
+       that shrinkage protects against sparse cells on its own. Under the
+       untruncated fit it came back 62,484 of 149,297 - the measurement that
+       exposed the likelihood defect. It stays as the regression check on the
+       corrected fit. */
     select sum(ebgm_evaluable)                         into :QC_EBEVAL   trimmed
         from signal.all_signals;
     select sum(signal_ebgm)                            into :QC_EBGM     trimmed
@@ -600,7 +580,7 @@ data work.qc_signal;
 
     metric = "EBGM signals with a < &MIN_CASES";
     value  = &QC_EBGM_THIN;
-    note   = 'HIGH - the prior is mis-specified, see qc_ebgm_model.csv'; output;
+    note   = 'Was 42% under the untruncated fit - compare against that'; output;
 
     metric = 'Signals - all three criteria';
     value  = &QC_ALL3;

@@ -34,14 +34,11 @@
  *           own FAERS screening runs, which is why EB05 >= 2 is the
  *           criterion a regulator recognises.
  *
- * KNOWN DEFECT (open at Gate 2b): the likelihood below is the plain NB
- *           mixture from the spec, which assumes the zero cells are in the
- *           sample. Callers pass only OBSERVED pairs (a >= 1), so the fit is
- *           biased upward and the background component lands well above 1 -
- *           2.62 on the first full FAERS run. Ranking is unaffected; the
- *           count of pairs clearing EB05 >= 2 is inflated. The fix is the
- *           zero-truncated likelihood f(N | N>=1) = f(N)/(1 - f(0)). See the
- *           section 7 header of 02_signal_engine.sas for the measurements.
+ * Note:    the likelihood is ZERO-TRUNCATED, which is a deliberate
+ *           departure from the formula in docs/spec_ebgm.md. Callers pass
+ *           only pairs that were observed, so the plain mixture in the spec
+ *           is the wrong likelihood for the data and biases the fit upward.
+ *           See ZERO TRUNCATION in the macro docstring for the measurements.
  *
  * Requires: SAS/IML (licensed on SAS OnDemand for Academics). Beyond that
  *           the macro is free of libname / path dependencies, so it can be
@@ -68,15 +65,18 @@
               total_n=&TOTAL_N. Resolved through DICTIONARY.MACROS, not
               through &&&total_n; see the comment at the resolution step for
               why that distinction is load-bearing.
-    max_iter  EM iteration cap. Default 200.
-    converge  EM stops when the log-likelihood stops changing in the first
-              -log10(converge) significant digits - the test is RELATIVE,
-              not absolute. Default 1e-6. See CONVERGENCE below.
+    max_iter  Simplex iteration cap. Default 2000; the fit normally settles
+              in 150-250.
+    converge  The simplex is judged converged when the spread of the
+              objective across its vertices falls below
+              converge * (1 + |objective|) - a RELATIVE test, because the
+              objective is a weighted sum and so scales with the table.
+              Default 1e-8.
     squash    1 (default) = fit the mixture on binned (a, E) cells rather
               than on every pair. See SQUASHING below. 0 fits on every row,
               which is 100x+ slower on a full-database table and was what
               exhausted a SAS ODA session on the first attempt.
-    debug     1 = print the fitted parameters at every EM iteration.
+    debug     1 = print the objective every 25 simplex iterations.
               Default 0.
 
   Columns added
@@ -89,7 +89,7 @@
   Global macro variables set (for the log and QC only - NOT columns)
     _EBGM_P     fitted mixing weight P        _EBGM_A2   fitted alpha2
     _EBGM_A1    fitted alpha1                 _EBGM_B2   fitted beta2
-    _EBGM_B1    fitted beta1                  _EBGM_ITER EM iterations used
+    _EBGM_B1    fitted beta1                  _EBGM_ITER simplex iterations
     _EBGM_LL    final log-likelihood          _EBGM_CONV 1 = converged
     _EBGM_NFIT  rows the mixture was fitted on
 
@@ -115,18 +115,16 @@
      This is what makes the method "empirical" Bayes: the prior is fitted to
      the observed counts of every pair in the database at once.
 
-  3. Fitting - EM.
-       E-step  w_i = posterior probability that pair i came from component 1.
-       M-step  P     <- mean(w_i)
-               (alpha1, beta1) <- maximise SUM w_i * log NB(a_i; alpha1, p1_i)
-               (alpha2, beta2) <- maximise SUM (1-w_i) * log NB(...)
-     Each M-step is a two-parameter concave-in-practice problem solved by
-     Newton-Raphson with an analytic gradient and Hessian, run in
-     (log alpha, log beta) space so the parameters cannot step negative, and
-     protected by step-halving so an iteration can never lower the objective.
-     Rolling our own beats calling NLPNRA here: the derivatives are cheap in
-     closed form, and one vectorised pass over the pairs replaces the finite
-     -difference evaluations a generic optimiser would need.
+  3. Fitting.  The five parameters are estimated by minimising the negative
+     zero-truncated log-likelihood directly, with a Nelder-Mead simplex over
+     (logit P, log alpha1, log beta1, log alpha2, log beta2). The transforms
+     hold P in (0,1) and the Gamma parameters positive without constraints.
+
+     Not EM, which is what the spec asked for: the truncation term couples
+     the two components, so the M-step no longer separates into two
+     independent two-parameter problems. See ZERO TRUNCATION below, and the
+     note at section 2c for the EM variant that was tried first and why it
+     was not enough.
 
   4. Posterior.  With the fitted parameters, pair i has posterior
 
@@ -149,27 +147,41 @@
      precision.
 
   --------------------------------------------------------------------------
-  CONVERGENCE - why the tolerance is relative
+  ZERO TRUNCATION - the one place this departs from the spec's formula
   --------------------------------------------------------------------------
-  The EM stops when
+  docs/spec_ebgm.md section 1.2 gives the marginal likelihood as a plain
+  two-component Negative Binomial mixture. That is the right likelihood for a
+  table that contains every drug x reaction cell. It is the WRONG likelihood
+  for the table this macro is actually handed.
 
-      |L_new - L_old| < converge * (1 + |L|)
+  02_signal_engine.sas builds its pairs from an INNER JOIN, so a row exists
+  only where the pair was reported at least once. A pair with a = 0 is not a
+  row; it is one of the roughly 60 million cells (3,555 ingredients x 17,046
+  PTs on the 2025Q3-2026Q2 extract) that never appear. Fitting an untruncated
+  likelihood to that table asks the model to explain an absence of zeros that
+  was never in the data, and it does so by inflating every parameter.
 
-  rather than on the absolute difference. This is a deliberate departure
-  from the step 2b spec, which asked for |delta_L| < 1e-6 outright, and the
-  reason is scale. The log-likelihood is a SUM over pairs, so it grows with
-  the table: about -32,000 on a 8,000-pair test, and in the millions on the
-  full FAERS database. An absolute threshold of 1e-6 against a value of
-  -1e6 is a request for thirteen significant digits, which a double does not
-  carry - the test can never pass, the run always burns all 200 iterations,
-  and it always reports "did not converge" on a fit that is in fact fine.
-  Measured on simulated data: after 300 iterations the absolute change was
-  still 1.7e-3, while the relative test was satisfied at iteration 83.
+  The first full FAERS run showed exactly that: a "background" component with
+  mean alpha1/beta1 = 2.62, when that component is by definition the
+  no-association bulk of the database and belongs near 1. Everything sparse
+  was then shrunk toward 2.6 rather than toward 1, 19.8% of the database
+  cleared EB05 >= 2, and 42% of those signals rested on fewer than three
+  cases.
 
-  Scaling by (1 + |L|) keeps the parameter meaning what the spec intended -
-  1e-6 is still "six digits" - and makes the same number correct whether the
-  macro is handed the 25-row test table at the bottom of this file or the
-  whole database. The +1 keeps the test well defined if L is ever near zero.
+  So the likelihood here is conditioned on the pair having been observed:
+
+      f(N | N >= 1, E) = f(N | E) / (1 - f(0 | E))
+
+  which is what openEBGM uses, for this reason. Refitting simulated data with
+  a known prior of background mean 1.00 and signal mean 5.00:
+
+      observed cells   plain NB (the spec)   zero-truncated (this code)
+      72%              1.123 / 5.24          1.003 / 5.11
+      42%              1.330 / 5.79          1.003 / 5.13
+      18%              -                     0.995 / 4.74
+      11%              7.432 / 1.84          1.003 / 4.90
+
+  The bias grows with sparsity and the correction removes it at every level.
 
   --------------------------------------------------------------------------
   NUMERICAL NOTES
@@ -199,19 +211,20 @@
   --------------------------------------------------------------------------
   PERFORMANCE
   --------------------------------------------------------------------------
-  PROC IML rather than DATA steps: the EM loop touches every pair on every
-  iteration, so a DATA step implementation would mean up to 200 passes over
-  a multi-million-row table on disk. In IML the counts live in memory as two
-  vectors (about 6 MB per million rows) and each iteration is a handful of
-  vectorised expressions. Only the five result columns are written back,
-  joined to the input by position - the wide character columns such as
-  prod_ai never enter IML at all.
+  PROC IML rather than DATA steps: the fit evaluates its objective a few
+  hundred times, each time over the whole table, so a DATA step
+  implementation would mean a few hundred passes over a multi-million-row
+  table on disk. In IML the counts live in memory as two vectors (about 6 MB
+  per million rows) and each evaluation is a handful of vectorised
+  expressions. Only the five result columns are written back, joined to the
+  input by position - the wide character columns such as prod_ai never enter
+  IML at all.
 
   Example
     %calc_ebgm(ds_in=work.with_prr_ror, ds_out=work.with_all_measures,
                total_n=TOTAL_N);
   ==========================================================================*/
-%macro calc_ebgm(ds_in=, ds_out=, total_n=, max_iter=200, converge=1e-6,
+%macro calc_ebgm(ds_in=, ds_out=, total_n=, max_iter=2000, converge=1e-8,
                  squash=1, debug=0);
 
     %local i dsid rc var vnum vtype bad nval nin nout iml_ok nebgm;
@@ -347,7 +360,7 @@
     proc iml;
 
         /*==================================================================
-          2a. Numerical core, as modules so the EM loop below reads like the
+          2a. Numerical core, as modules so the fit below reads like the
               algorithm rather than like arithmetic.
           ==================================================================*/
 
@@ -371,97 +384,60 @@
             return( 1 / (1 + ((1 - P) / P) # exp(t)) );
         finish;
 
-        /* E-step. Returns w (responsibility of component 1) and the
-           log-likelihood, computed by subtracting the larger exponent first
-           so EXP is never handed a positive argument.
+        /* 1 - exp(-x), evaluated so it keeps its digits when x is tiny.
+           The straight form loses them all: for x = 1e-12, exp(-x) rounds to
+           a double that differs from 1 in its last bits, and subtracting
+           leaves noise. The series is the first three terms of 1-exp(-x). */
+        start onemexp(x);
+            xs = choose(x > 700, 700, x);
+            return( choose(x < 1e-5,
+                           x # (1 - (x / 2) # (1 - x / 3)),
+                           1 - exp(-xs)) );
+        finish;
 
-           ROWWT is the squashing weight: how many original pairs each row
-           stands for (all 1 when SQUASH=0). It multiplies the likelihood
-           contribution, so a bin of 300 identical pairs counts 300 times. */
-        start estep(cnt, expc, rowwt, P, a1, b1, a2, b2, w, ll);
-            l1 = lognb(cnt, a1, b1, expc);
-            l2 = lognb(cnt, a2, b2, expc);
+        /* Negative ZERO-TRUNCATED log-likelihood of the mixture - the whole
+           objective, in one function, minimised directly.
 
-            w  = qpost(cnt, expc, P, a1, b1, a2, b2);
+           TH holds the five parameters in unconstrained form: logit(P) and
+           the logs of alpha1, beta1, alpha2, beta2. Optimising the transforms
+           rather than the parameters is what keeps P inside (0,1) and the
+           Gamma parameters positive without a single constraint.
 
+           The truncation term is the point of this function. The caller only
+           ever sees pairs that were REPORTED at least once; a pair with a = 0
+           is not a row in the table, it is one of the tens of millions of
+           drug x reaction cells that never appear. Conditioning on that -
+           dividing by 1 - f(0 | E) - is what stops the fit inflating every
+           parameter to explain an absence of zeros that was never in the
+           data. See the ZERO TRUNCATION note in the macro header.
+
+           1 - f(0|E) is built from ONEMEXP rather than as 1 - f0, because
+           for a pair with a small expected count f0 is within rounding
+           distance of 1 and the subtraction would return zero. */
+        start negll(th, cnt, expc, wt);
+            tp = th[1];
+            tp = choose(tp >  30,  30, choose(tp < -30, -30, tp));
+            P  = 1 / (1 + exp(-tp));
+
+            lp  = th[2:5];
+            lp  = choose(lp >  14,  14, choose(lp < -14, -14, lp));
+            al1 = exp(lp[1]);   be1 = exp(lp[2]);
+            al2 = exp(lp[3]);   be2 = exp(lp[4]);
+
+            l1 = lognb(cnt, al1, be1, expc);
+            l2 = lognb(cnt, al2, be2, expc);
             m  = choose(l1 > l2, l1, l2);
-            ll = sum( rowwt # (m + log( P # exp(l1 - m) + (1 - P) # exp(l2 - m) )) );
-        finish;
+            ll = m + log( P # exp(l1 - m) + (1 - P) # exp(l2 - m) );
 
-        /* Weighted NB log-likelihood for one component - the M-step objective. */
-        start qobj(cnt, expc, wt, alpha, beta);
-            return( sum( wt # lognb(cnt, alpha, beta, expc) ) );
-        finish;
+            /* u_k = -log NB(0; alpha_k, beta_k, E) = alpha_k * log(1 + E/beta_k).
+               Written this way rather than as log(beta+E) - log(beta), which
+               cancels to nothing when E << beta. */
+            u1 = al1 # log(1 + expc / be1);
+            u2 = al2 # log(1 + expc / be2);
+            om = P # onemexp(u1) + (1 - P) # onemexp(u2);
+            om = choose(om < 1e-300, 1e-300, om);
 
-        /* M-step for one component. Newton-Raphson in (log alpha, log beta):
-           the log reparameterisation keeps both parameters positive without
-           a constraint, and the chain rule turns the analytic (alpha, beta)
-           derivatives below into the log-space gradient and Hessian. Falls
-           back to a scaled steepest-ascent step whenever the Hessian is not
-           negative definite, and never accepts a step that fails to raise
-           the objective. ALPHA and BETA are updated in place. */
-        start mstep(cnt, expc, wt, alpha, beta);
-            u  = log(alpha);
-            v  = log(beta);
-            q0 = qobj(cnt, expc, wt, alpha, beta);
-
-            ms_done = 0;
-            do mit = 1 to 50 until (ms_done);
-
-                den = beta + expc;
-
-                /* dQ/dalpha and dQ/dbeta */
-                ga = sum( wt # (digamma(cnt + alpha) - digamma(alpha)
-                                + log(beta) - log(den)) );
-                gb = sum( wt # (alpha / beta - (alpha + cnt) / den) );
-
-                /* second derivatives in (alpha, beta) */
-                haa = sum( wt # (trigamma(cnt + alpha) - trigamma(alpha)) );
-                hab = sum( wt # (1 / beta - 1 / den) );
-                hbb = sum( wt # (-alpha / beta##2 + (alpha + cnt) / den##2) );
-
-                /* chain rule into (log alpha, log beta) */
-                gu  = alpha * ga;
-                gv  = beta  * gb;
-                Huu = alpha##2 * haa + alpha * ga;
-                Huv = alpha * beta * hab;
-                Hvv = beta##2 * hbb + beta * gb;
-
-                if abs(gu) + abs(gv) < 1e-8 then ms_done = 1;
-                else do;
-
-                    det = Huu * Hvv - Huv * Huv;
-                    if Huu < 0 & det > 0 then do;      /* negative definite */
-                        du = -( Hvv * gu - Huv * gv) / det;
-                        dv = -(-Huv * gu + Huu * gv) / det;
-                    end;
-                    else do;                            /* steepest ascent */
-                        sc = max(abs(gu), abs(gv), 1);
-                        du = gu / sc;
-                        dv = gv / sc;
-                    end;
-
-                    /* Step-halving. The +/-14 clamp holds alpha and beta
-                       inside [8e-7, 1.2e6]; anything outside that is a
-                       runaway, not a fit. */
-                    step = 1;
-                    took = 0;
-                    do k = 1 to 40 until (took);
-                        ua = min(max(u + step * du, -14), 14);
-                        vb = min(max(v + step * dv, -14), 14);
-                        q1 = qobj(cnt, expc, wt, exp(ua), exp(vb));
-                        if q1 > q0 then took = 1;
-                        else step = step / 2;
-                    end;
-
-                    if took then do;
-                        u = ua;  v = vb;
-                        alpha = exp(u);  beta = exp(v);
-                        q0 = q1;
-                    end;
-                    else ms_done = 1;   /* no uphill step exists - stop here */
-                end;
-            end;
+            return( -sum( wt # (ll - log(om)) ) );
         finish;
 
         /* Percentile of the two-component Gamma posterior mixture, by
@@ -531,14 +507,14 @@
             free nDrg nRea aObs okr;
 
             /*==============================================================
-              2b-2. SQUASHING - collapse the pairs the EM has to see.
+              2b-2. SQUASHING - collapse the pairs the fit has to see.
 
               The marginal likelihood of a pair depends on nothing but its
               (a, E). Two pairs with the same count and a near-identical
               expected count contribute the same term, so fitting five
               parameters against all 750,000 of them separately is wasted
-              work: the EM re-evaluates LGAMMA, DIGAMMA and TRIGAMMA over
-              every row on every one of up to 200 iterations.
+              work: the fit re-evaluates LGAMMA over every row on each of the
+              few hundred objective evaluations the simplex needs.
 
               Squashing bins the pairs and gives each bin a weight equal to
               how many pairs it stands for. Counts bin exactly up to 50 -
@@ -546,11 +522,12 @@
               above it; E bins geometrically at 5% per bin, so every pair in
               a bin has an expected count within 5% of the bin mean.
 
-              Measured on a simulated 753,594-pair table: 5,752 bins, a 131x
-              reduction, the EM falling from 279 s to 1.5 s, and the fitted
-              parameters agreeing to three decimals (P 0.2584 vs 0.2582,
-              alpha1 1.3523 vs 1.3535). Per-pair EBGM agreed to a maximum
-              relative difference of 1.4e-3. This is the standard treatment -
+              Measured on a simulated 753,594-pair table: 10,628 bins, a 71x
+              reduction. One objective evaluation falls from 95 ms to 0.7 ms
+              and the whole fit from 28.4 s to 0.18 s, while both runs
+              converge to the same answer - component means 1.0028 / 5.039
+              binned against 1.0017 / 5.013 unbinned, on data generated from
+              a true 1.000 / 5.00. This is the standard treatment -
               DuMouchel's own paper bins the table before fitting, and
               openEBGM does the same - not a shortcut invented here.
 
@@ -611,60 +588,142 @@
             end;
 
             /*==============================================================
-              2c. EM. Starting values are DuMouchel's: component 1 broad
-                  (mean alpha/beta = 2), component 2 concentrated. Poor
-                  starts are the usual way a two-component mixture collapses
-                  onto one component, so these are not arbitrary.
+              2c. FIT - direct minimisation of the negative zero-truncated
+                  log-likelihood by Nelder-Mead simplex.
+
+                  This replaces the EM of the spec. Two reasons, both found
+                  by measurement rather than preference:
+
+                  1. The spec's likelihood is untruncated, and on a table of
+                     observed pairs only that is the wrong likelihood - it
+                     put the background component at 2.62 instead of ~1 on
+                     the first full FAERS run. The truncated objective does
+                     not factor into two independent component problems the
+                     way the untruncated one does, so the EM's tidy M-step
+                     stops applying.
+                  2. An EM that imputes the missing zero cells does exist and
+                     was tried. It recovered the background component but not
+                     the signal component, and was still moving after 400
+                     iterations. Direct minimisation reaches the answer in
+                     around 200.
+
+                  Validated by simulating from a KNOWN prior of background
+                  mean 1.00 and signal mean 5.00 and refitting:
+
+                      observed cells   fitted means      P (true 0.85)
+                      72%              1.003 / 5.11      0.855
+                      42%              1.003 / 5.13      0.855
+                      18%              0.995 / 4.74      0.839
+                      11%              1.003 / 4.90      0.844
+
+                  Nelder-Mead rather than a gradient method: the objective is
+                  cheap (one pass over a few thousand bins) but its gradient
+                  in five transformed parameters is not, and a derivative-free
+                  method has no Hessian to go indefinite on. Written out here
+                  rather than called from NLPNMS so that MAX_ITER= and
+                  CONVERGE= mean exactly what this file says they mean.
+
+                  Starting point is DuMouchel's: alpha1=0.2, beta1=0.1,
+                  alpha2=2, beta2=4, P=0.5.
               ==============================================================*/
-            P = 0.5;  a1 = 0.2;  b1 = 0.1;  a2 = 2.0;  b2 = 4.0;
+            npar = 5;
 
-            llold = -1e300;
-            conv  = 0;
-            iter  = 0;
+            th0 = j(1, npar, 0);
+            th0[1] = 0;                       /* logit(P) = 0, so P = 0.5   */
+            th0[2] = log(0.2);   th0[3] = log(0.1);
+            th0[4] = log(2.0);   th0[5] = log(4.0);
 
-            /* IML module arguments are passed by reference, so the two that
-               ESTEP writes back must already exist as symbols before the
-               first call. */
-            w  = .;
-            ll = .;
+            /* Initial simplex: the start point plus one step along each
+               axis. 0.5 in log space is a factor of 1.65 - large enough to
+               escape a flat start, small enough not to begin in overflow. */
+            Smp = repeat(th0, npar + 1, 1);
+            do i = 1 to npar;
+                Smp[i+1, i] = Smp[i+1, i] + 0.5;
+            end;
 
-            wsum = sum(rwt);
+            Fsm = j(npar + 1, 1, 0);
+            do i = 1 to npar + 1;
+                Fsm[i] = negll(Smp[i,], Nf, Ef, rwt);
+            end;
+
+            conv = 0;
+            iter = 0;
 
             do it = 1 to &max_iter until (conv);
                 iter = it;
 
-                run estep(Nf, Ef, rwt, P, a1, b1, a2, b2, w, ll);
+                /* Order the simplex, best first. Sorting the objective and
+                   the points together keeps them in step. */
+                Wsm = Fsm || Smp;
+                call sort(Wsm, 1);
+                Fsm = Wsm[, 1];
+                Smp = Wsm[, 2:(npar+1)];
 
-                /* RELATIVE tolerance - see the CONVERGENCE note in the
-                   macro header. Scaling by (1 + |ll|) makes CONVERGE= mean
-                   "this many significant digits of the log-likelihood",
-                   which is the same test on 25 rows and on 750,000.
-
-                   "ll ^= ." is not decoration: IML orders missing below
-                   every number, so a log-likelihood that went missing would
-                   otherwise satisfy the tolerance test and report a
-                   converged fit built on nothing. */
-                if ll ^= . & abs(ll - llold) < &converge * (1 + abs(ll))
+                /* Relative spread across the simplex. Absolute would mean
+                   something different on 26 bins and on 11,000 - the
+                   objective is a weighted sum, so it scales with the table. */
+                if abs(Fsm[npar+1] - Fsm[1]) < &converge * (1 + abs(Fsm[1]))
                     then conv = 1;
-                llold = ll;
-%if &debug %then %do;
-                print it P a1 b1 a2 b2 ll;
-%end;
+                else do;
 
-                if ^conv then do;
-                    /* P is clamped off 0 and 1: a degenerate weight would
-                       divide by zero in the next E-step. */
-                    P  = sum(rwt # w) / wsum;
-                    P  = min(max(P, 1e-10), 1 - 1e-10);
+                    Sbest = Smp[1:npar, ];
+                    cen   = Sbest[:, ];          /* centroid of the best five */
+                    xw    = Smp[npar+1, ];       /* the point being replaced  */
 
-                    run mstep(Nf, Ef, rwt # w, a1, b1);
-                    run mstep(Nf, Ef, rwt # (1 - w), a2, b2);
+                    xr = cen + (cen - xw);       /* reflect                   */
+                    fr = negll(xr, Nf, Ef, rwt);
+
+                    if fr < Fsm[1] then do;      /* better than the best:     */
+                        xe = cen + 2 * (cen - xw);   /* try going further     */
+                        fe = negll(xe, Nf, Ef, rwt);
+                        if fe < fr then do; Smp[npar+1,] = xe; Fsm[npar+1] = fe; end;
+                        else            do; Smp[npar+1,] = xr; Fsm[npar+1] = fr; end;
+                    end;
+                    else if fr < Fsm[npar] then do;   /* middling: take it    */
+                        Smp[npar+1,] = xr;  Fsm[npar+1] = fr;
+                    end;
+                    else do;                     /* worse: pull inward        */
+                        xc = cen + 0.5 * (xw - cen);
+                        fc = negll(xc, Nf, Ef, rwt);
+                        if fc < Fsm[npar+1] then do;
+                            Smp[npar+1,] = xc;  Fsm[npar+1] = fc;
+                        end;
+                        else do;                 /* still worse: shrink all   */
+                            do i = 2 to npar + 1;
+                                Smp[i,] = Smp[1,] + 0.5 # (Smp[i,] - Smp[1,]);
+                                Fsm[i]  = negll(Smp[i,], Nf, Ef, rwt);
+                            end;
+                        end;
+                    end;
                 end;
+%if &debug %then %do;
+                if mod(it, 25) = 0 | conv then print it conv (Fsm[1])[label="negLL"];
+%end;
             end;
 
+            /* Final ordering, then read the parameters back out of the
+               transforms. The same clamps as NEGLL, so what is reported is
+               exactly what the objective was last evaluated at. */
+            Wsm = Fsm || Smp;
+            call sort(Wsm, 1);
+            Fsm = Wsm[, 1];
+            Smp = Wsm[, 2:(npar+1)];
+
+            th = Smp[1,];
+            ll = -Fsm[1];
+
+            tp = th[1];
+            tp = choose(tp > 30, 30, choose(tp < -30, -30, tp));
+            P  = 1 / (1 + exp(-tp));
+
+            lp = th[2:5];
+            lp = choose(lp > 14, 14, choose(lp < -14, -14, lp));
+            a1 = exp(lp[1]);  b1 = exp(lp[2]);
+            a2 = exp(lp[3]);  b2 = exp(lp[4]);
+
             /* Label switching. The likelihood is invariant to swapping the
-               two components, so which one the EM lands on is arbitrary.
-               Fixing component 1 as the larger-weight background component
+               two components, so which one the optimiser lands on is
+               arbitrary. Fixing component 1 as the larger-weight background
                makes the reported parameters comparable across runs. */
             if P < 0.5 then do;
                 P    = 1 - P;
@@ -672,12 +731,10 @@
                 tmpb = b1;  b1 = b2;  b2 = tmpb;
             end;
 
-            /* Back to the full table. Q is computed per PAIR, not per bin,
-               from the final parameters - after a non-converged run, or after
-               the swap above, W from the loop would belong to earlier ones.
-               LL keeps the value from the fit and is not overwritten here. */
+            /* Back to the full table: Q is computed per PAIR, not per bin.
+               LL keeps the value from the fit and is not overwritten. */
             Q = qpost(Nv, Ev, P, a1, b1, a2, b2);
-            free w Nf Ef rwt;
+            free Nf Ef rwt Smp Fsm Wsm;
 
             /*==============================================================
               2d. Posterior summaries.
@@ -738,12 +795,12 @@
 
     %put NOTE: [calc_ebgm] fitted P=&_EBGM_P alpha1=&_EBGM_A1 beta1=&_EBGM_B1;
     %put NOTE: [calc_ebgm]         alpha2=&_EBGM_A2 beta2=&_EBGM_B2;
-    %put NOTE: [calc_ebgm] iterations=&_EBGM_ITER logL=&_EBGM_LL rows fitted=&_EBGM_NFIT;
+    %put NOTE: [calc_ebgm] simplex iterations=&_EBGM_ITER truncated logL=&_EBGM_LL rows fitted=&_EBGM_NFIT;
     %put NOTE: [calc_ebgm] mixture fitted on &_EBGM_NBIN squashed bins (squash=&squash).;
 
     %if &_EBGM_CONV ne 1 %then %do;
-        %put WARNING: [calc_ebgm] EM did not converge in &max_iter iterations.;
-        %put WARNING- [calc_ebgm] Results use the last-iteration parameters.;
+        %put WARNING: [calc_ebgm] The simplex did not converge in &max_iter iterations.;
+        %put WARNING- [calc_ebgm] Results use the best vertex reached.;
     %end;
 
     /* The join is positional, so a row-count mismatch would silently pair
@@ -823,7 +880,7 @@
     pair             a      RR     EBGM     EB05    EB05 >= 2 ?
     STRONG_BIG     500   10.00     9.97     9.26    yes - signal
     STRONG_MID      60   10.00     9.76     7.86    yes - signal
-    STRONG_SPARSE    3   10.00     5.78     1.10    NO  - not a signal
+    STRONG_SPARSE    3   10.00     5.57     1.04    NO  - not a signal
 
   The gap between 9.97 and 5.78 IS the shrinkage, and EB05 is what turns it
   into a decision. Reproducing that ordering is the real test of this macro;
@@ -832,8 +889,8 @@
   Expected fit, approximately (the EM is deterministic, but the last digits
   depend on the platform's DIGAMMA and TRIGAMMA):
 
-    P = 0.68   alpha1 = 12.1   beta1 = 13.2   alpha2 = 0.69   beta2 = 0.17
-    converges in about 10 iterations; component means 0.92 and 4.08
+    P = 0.654  alpha1 = 12.60  beta1 = 13.90  alpha2 = 0.456  beta2 = 0.143
+    converges in about 141 simplex iterations; component means 0.91 and 3.20
 
   Also check:
     1. EB05 <= EB95 on every evaluable row. Note that EBGM is a GEOMETRIC
@@ -861,6 +918,11 @@
   call. An earlier version of this test used TEST_N, could not collide, and
   passed green while the real engine run silently wrote 753,594 rows of
   missing EBGM. A unit test on a shape the caller never uses tests nothing.
+
+  The same caution applies to what this table can show about the fit itself.
+  It cannot show the zero-truncation problem, because 26 hand-written rows
+  are not a sparse database - that defect only became visible on the full
+  753,594-pair run. Read the ZERO TRUNCATION section above for that.
 
   Leaving %let TOTAL_N = 100000 here is safe: the engine %includes this file
   in section 1, and section 3 overwrites TOTAL_N from the data before any
@@ -909,7 +971,7 @@ run;
 proc print data=work._test_ebgm_out noobs label;
     var pair a n_drug n_reac E RR EBGM EB05 EB95;
     title 'calc_ebgm verification - the three STRONG_ rows all have RR = 10';
-    title2 'Expect EBGM 9.97 / 9.76 / 5.78 and EB05 9.26 / 7.86 / 1.10';
+    title2 'Expect EBGM 9.97 / 9.76 / 5.57 and EB05 9.26 / 7.86 / 1.04';
 run;
 title;
 */
