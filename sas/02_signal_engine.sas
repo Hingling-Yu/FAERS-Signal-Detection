@@ -82,9 +82,17 @@
  *   cuts the pairs table to ~24 bytes per row at the cost of two extra
  *   lookup tables, and is the first thing to try before trimming scope.
  *
- * Runtime:  roughly 30-55 minutes on SAS ODA. The GROUP BY that produces a
- *           is the dominant step; the EBGM fit adds roughly 5-15 minutes,
- *           most of it in the EB05 / EB95 bisection.
+ * Runtime:  a few minutes on SAS ODA. Measured: about 1 minute from the
+ *           start through the section 6 sort, the GROUP BY that produces a
+ *           being the dominant step. The EBGM fit adds roughly another
+ *           minute, most of it in the EB05 / EB95 bisection rather than in
+ *           the EM.
+ *
+ *           That last part is only true because %calc_ebgm squashes the
+ *           pairs before fitting. Fitting the mixture on all 753,594 rows
+ *           instead takes 10-25 minutes of unbroken PROC IML time, which
+ *           SAS ODA ends the session for. Do not set squash=0 on a
+ *           full-database run.
  *
  * Author:   Hingling Yu
  * Created:  2026-09-03
@@ -626,6 +634,10 @@ data work.qc_ebgm_model;
     parameter = 'Pairs used in the fit';
     value     = &_EBGM_NFIT;
     note      = 'Rows with a>0 and positive marginals';       output;
+
+    parameter = 'Squashed bins the EM saw';
+    value     = &_EBGM_NBIN;
+    note      = 'Pairs binned by (a, E); EBGM itself is still per pair'; output;
 
     parameter = 'Mean shrinkage EBGM / RR';
     value     = &QC_SHRINK;
