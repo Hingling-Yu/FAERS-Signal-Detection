@@ -72,6 +72,11 @@
               converge * (1 + |objective|) - a RELATIVE test, because the
               objective is a weighted sum and so scales with the table.
               Default 1e-8.
+    truncate  1 (default) = condition the likelihood on the pair having
+              been reported, f(N|N>=1) = f(N)/(1 - f(0)). See ZERO
+              TRUNCATION. 0 uses the spec's plain mixture, which is
+              measurably biased on a table of observed pairs but is what
+              earlier runs used - keep it only to reproduce them.
     squash    1 (default) = fit the mixture on binned (a, E) cells rather
               than on every pair. See SQUASHING below. 0 fits on every row,
               which is 100x+ slower on a full-database table and was what
@@ -225,9 +230,9 @@
                total_n=TOTAL_N);
   ==========================================================================*/
 %macro calc_ebgm(ds_in=, ds_out=, total_n=, max_iter=2000, converge=1e-8,
-                 squash=1, debug=0);
+                 squash=1, truncate=1, debug=0);
 
-    %local i dsid rc var vnum vtype bad nval nin nout iml_ok nebgm;
+    %local i dsid rc var vnum vtype bad nval nin nout iml_ok nebgm _bgmean;
 
     %global _EBGM_P _EBGM_A1 _EBGM_B1 _EBGM_A2 _EBGM_B2
             _EBGM_ITER _EBGM_LL _EBGM_CONV _EBGM_NFIT _EBGM_NBIN;
@@ -432,12 +437,88 @@
             /* u_k = -log NB(0; alpha_k, beta_k, E) = alpha_k * log(1 + E/beta_k).
                Written this way rather than as log(beta+E) - log(beta), which
                cancels to nothing when E << beta. */
+%if &truncate %then %do;
             u1 = al1 # log(1 + expc / be1);
             u2 = al2 # log(1 + expc / be2);
             om = P # onemexp(u1) + (1 - P) # onemexp(u2);
             om = choose(om < 1e-300, 1e-300, om);
+            ll = ll - log(om);
+%end;
+            return( -sum( wt # ll ) );
+        finish;
 
-            return( -sum( wt # (ll - log(om)) ) );
+        /* One Nelder-Mead run. Returns the best vertex, its objective, the
+           iterations used and whether the spread test was met.
+
+           A module rather than inline code because the driver below runs it
+           several times: from different starting points, and again from
+           wherever the previous run stopped. Restarting a simplex is not
+           ceremony - Nelder-Mead can collapse into a degenerate shape and
+           report convergence while sitting nowhere near a minimum, and
+           rebuilding the simplex around the point it stopped at is the
+           standard way to find out whether it really had finished. */
+        start nmfit(th0, stepsz, cnt, expc, wt, mxit, tolr, thb, fb, itb, cvb);
+            npar = ncol(th0);
+
+            Smp = repeat(th0, npar + 1, 1);
+            do i = 1 to npar;
+                Smp[i+1, i] = Smp[i+1, i] + stepsz;
+            end;
+
+            Fsm = j(npar + 1, 1, 0);
+            do i = 1 to npar + 1;
+                Fsm[i] = negll(Smp[i,], cnt, expc, wt);
+            end;
+
+            cvb = 0;
+            itb = 0;
+            do it = 1 to mxit until (cvb);
+                itb = it;
+
+                Wsm = Fsm || Smp;
+                call sort(Wsm, 1);
+                Fsm = Wsm[, 1];
+                Smp = Wsm[, 2:(npar+1)];
+
+                if abs(Fsm[npar+1] - Fsm[1]) < tolr * (1 + abs(Fsm[1]))
+                    then cvb = 1;
+                else do;
+                    Sbest = Smp[1:npar, ];
+                    cen   = Sbest[:, ];
+                    xw    = Smp[npar+1, ];
+
+                    xr = cen + (cen - xw);
+                    fr = negll(xr, cnt, expc, wt);
+
+                    if fr < Fsm[1] then do;
+                        xe = cen + 2 * (cen - xw);
+                        fe = negll(xe, cnt, expc, wt);
+                        if fe < fr then do; Smp[npar+1,] = xe; Fsm[npar+1] = fe; end;
+                        else            do; Smp[npar+1,] = xr; Fsm[npar+1] = fr; end;
+                    end;
+                    else if fr < Fsm[npar] then do;
+                        Smp[npar+1,] = xr;  Fsm[npar+1] = fr;
+                    end;
+                    else do;
+                        xc = cen + 0.5 * (xw - cen);
+                        fc = negll(xc, cnt, expc, wt);
+                        if fc < Fsm[npar+1] then do;
+                            Smp[npar+1,] = xc;  Fsm[npar+1] = fc;
+                        end;
+                        else do;
+                            do i = 2 to npar + 1;
+                                Smp[i,] = Smp[1,] + 0.5 # (Smp[i,] - Smp[1,]);
+                                Fsm[i]  = negll(Smp[i,], cnt, expc, wt);
+                            end;
+                        end;
+                    end;
+                end;
+            end;
+
+            Wsm = Fsm || Smp;
+            call sort(Wsm, 1);
+            thb = Wsm[1, 2:(npar+1)];
+            fb  = Wsm[1, 1];
         finish;
 
         /* Percentile of the two-component Gamma posterior mixture, by
@@ -626,91 +707,72 @@
                   Starting point is DuMouchel's: alpha1=0.2, beta1=0.1,
                   alpha2=2, beta2=4, P=0.5.
               ==============================================================*/
+            /*----------------------------------------------------------
+              Multi-start. The simplex is run from five starting points and
+              again from wherever each one stopped, and the best result wins.
+
+              This is not caution for its own sake. On the first truncated
+              run a single start from DuMouchel's values reported CONVERGED
+              at alpha1 = 2.06e-6 - a background component collapsed onto a
+              point mass at zero carrying 99.97% of the weight, which is not
+              a prior anyone can use. Refitting simulated data of the same
+              shape and sparsity did not reproduce it, so the trap is a
+              property of this database rather than of the sparsity, and the
+              only defence that does not depend on guessing where it is, is
+              to approach the optimum from several directions and compare.
+
+              Every start's objective is written to the log. If they disagree
+              the surface has more than one basin and the fit needs a human
+              look, which is exactly what the log is for.
+              ----------------------------------------------------------*/
             npar = 5;
 
+            /* logit(P), log alpha1, log beta1, log alpha2, log beta2 */
+            STARTS = { 0.0  -1.6094  -2.3026   0.6931   1.3863,
+                       0.0   0.6931   0.6931   0.4055  -1.2040,
+                       1.0   0.0      0.0      0.0     -1.6094,
+                       0.0  -0.6931  -0.6931   1.0986   0.0   ,
+                       1.5   1.0986   1.0986  -0.6931  -2.3026 };
+            nstart = nrow(STARTS);
+
+            /* Output arguments must exist as symbols before the first call. */
             th0 = j(1, npar, 0);
-            th0[1] = 0;                       /* logit(P) = 0, so P = 0.5   */
-            th0[2] = log(0.2);   th0[3] = log(0.1);
-            th0[4] = log(2.0);   th0[5] = log(4.0);
+            thb = j(1, npar, 0);   fb  = 0;   itb = 0;   cvb = 0;
+            thbest = thb;  fbest = .;  iter = 0;  conv = 0;
+            SLOG = j(nstart, 3, 0);
 
-            /* Initial simplex: the start point plus one step along each
-               axis. 0.5 in log space is a factor of 1.65 - large enough to
-               escape a flat start, small enough not to begin in overflow. */
-            Smp = repeat(th0, npar + 1, 1);
-            do i = 1 to npar;
-                Smp[i+1, i] = Smp[i+1, i] + 0.5;
-            end;
+            do sIx = 1 to nstart;
 
-            Fsm = j(npar + 1, 1, 0);
-            do i = 1 to npar + 1;
-                Fsm[i] = negll(Smp[i,], Nf, Ef, rwt);
-            end;
+                /* Fresh simplex, then a tighter one rebuilt where it landed.
+                   TH0 is copied out each time rather than passing STARTS[sIx,]
+                   or THB straight in: IML modules take their arguments by
+                   reference, so handing the same matrix in as both the input
+                   and the output would alias them. */
+                th0 = STARTS[sIx,];
+                run nmfit(th0, 0.5, Nf, Ef, rwt, &max_iter, &converge,
+                          thb, fb, itb, cvb);
 
-            conv = 0;
-            iter = 0;
+                th0 = thb;
+                run nmfit(th0, 0.1, Nf, Ef, rwt, &max_iter, &converge,
+                          thb, fb, itb, cvb);
 
-            do it = 1 to &max_iter until (conv);
-                iter = it;
+                SLOG[sIx, 1] = sIx;
+                SLOG[sIx, 2] = fb;
+                SLOG[sIx, 3] = cvb;
 
-                /* Order the simplex, best first. Sorting the objective and
-                   the points together keeps them in step. */
-                Wsm = Fsm || Smp;
-                call sort(Wsm, 1);
-                Fsm = Wsm[, 1];
-                Smp = Wsm[, 2:(npar+1)];
-
-                /* Relative spread across the simplex. Absolute would mean
-                   something different on 26 bins and on 11,000 - the
-                   objective is a weighted sum, so it scales with the table. */
-                if abs(Fsm[npar+1] - Fsm[1]) < &converge * (1 + abs(Fsm[1]))
-                    then conv = 1;
-                else do;
-
-                    Sbest = Smp[1:npar, ];
-                    cen   = Sbest[:, ];          /* centroid of the best five */
-                    xw    = Smp[npar+1, ];       /* the point being replaced  */
-
-                    xr = cen + (cen - xw);       /* reflect                   */
-                    fr = negll(xr, Nf, Ef, rwt);
-
-                    if fr < Fsm[1] then do;      /* better than the best:     */
-                        xe = cen + 2 * (cen - xw);   /* try going further     */
-                        fe = negll(xe, Nf, Ef, rwt);
-                        if fe < fr then do; Smp[npar+1,] = xe; Fsm[npar+1] = fe; end;
-                        else            do; Smp[npar+1,] = xr; Fsm[npar+1] = fr; end;
-                    end;
-                    else if fr < Fsm[npar] then do;   /* middling: take it    */
-                        Smp[npar+1,] = xr;  Fsm[npar+1] = fr;
-                    end;
-                    else do;                     /* worse: pull inward        */
-                        xc = cen + 0.5 * (xw - cen);
-                        fc = negll(xc, Nf, Ef, rwt);
-                        if fc < Fsm[npar+1] then do;
-                            Smp[npar+1,] = xc;  Fsm[npar+1] = fc;
-                        end;
-                        else do;                 /* still worse: shrink all   */
-                            do i = 2 to npar + 1;
-                                Smp[i,] = Smp[1,] + 0.5 # (Smp[i,] - Smp[1,]);
-                                Fsm[i]  = negll(Smp[i,], Nf, Ef, rwt);
-                            end;
-                        end;
-                    end;
+                if fbest = . | fb < fbest then do;
+                    fbest  = fb;
+                    thbest = thb;
+                    iter   = itb;
+                    conv   = cvb;
                 end;
-%if &debug %then %do;
-                if mod(it, 25) = 0 | conv then print it conv (Fsm[1])[label="negLL"];
-%end;
             end;
 
-            /* Final ordering, then read the parameters back out of the
-               transforms. The same clamps as NEGLL, so what is reported is
-               exactly what the objective was last evaluated at. */
-            Wsm = Fsm || Smp;
-            call sort(Wsm, 1);
-            Fsm = Wsm[, 1];
-            Smp = Wsm[, 2:(npar+1)];
+            print SLOG[colname={"start" "negLL" "converged"} format=best16.
+                       label="[calc_ebgm] fit by starting point - all five should agree"];
 
-            th = Smp[1,];
-            ll = -Fsm[1];
+            th = thbest;
+            ll = -fbest;
 
             tp = th[1];
             tp = choose(tp > 30, 30, choose(tp < -30, -30, tp));
@@ -734,7 +796,7 @@
             /* Back to the full table: Q is computed per PAIR, not per bin.
                LL keeps the value from the fit and is not overwritten. */
             Q = qpost(Nv, Ev, P, a1, b1, a2, b2);
-            free Nf Ef rwt Smp Fsm Wsm;
+            free Nf Ef rwt STARTS SLOG;
 
             /*==============================================================
               2d. Posterior summaries.
@@ -796,11 +858,45 @@
     %put NOTE: [calc_ebgm] fitted P=&_EBGM_P alpha1=&_EBGM_A1 beta1=&_EBGM_B1;
     %put NOTE: [calc_ebgm]         alpha2=&_EBGM_A2 beta2=&_EBGM_B2;
     %put NOTE: [calc_ebgm] simplex iterations=&_EBGM_ITER truncated logL=&_EBGM_LL rows fitted=&_EBGM_NFIT;
-    %put NOTE: [calc_ebgm] mixture fitted on &_EBGM_NBIN squashed bins (squash=&squash).;
+    %put NOTE: [calc_ebgm] mixture fitted on &_EBGM_NBIN squashed bins (squash=&squash, truncate=&truncate).;
 
     %if &_EBGM_CONV ne 1 %then %do;
         %put WARNING: [calc_ebgm] The simplex did not converge in &max_iter iterations.;
         %put WARNING- [calc_ebgm] Results use the best vertex reached.;
+    %end;
+
+    /*----------------------------------------------------------------------
+      Degeneracy guard.
+
+      A converged optimiser is not the same as a usable prior. The truncated
+      fit's first full run reported CONVERGED while sitting at
+      alpha1 = 2.06e-6 - the background component collapsed onto a point mass
+      at zero, holding 99.97% of the weight. Every other check in this macro
+      passed: 753,594 rows written, all five columns populated, no missing
+      values. Only the parameters themselves showed it.
+
+      Component 1 is the no-association background of the database, so its
+      prior mean belongs near 1. Anything outside [0.2, 5] is not a
+      background, and a shape parameter within a factor of ~100 of the
+      exp(-14) clamp means the optimiser was walking into a corner rather
+      than sitting in a minimum. Neither is made an ERROR: the estimates are
+      still written, because a human reading the parameters next to this
+      warning is better placed to judge than a threshold is.
+      ----------------------------------------------------------------------*/
+    %if %sysevalf(&_EBGM_B1 > 0) %then %do;
+        %let _bgmean = %sysevalf(&_EBGM_A1 / &_EBGM_B1);
+        %put NOTE: [calc_ebgm] background component prior mean = &_bgmean (expect near 1).;
+
+        %if %sysevalf(&_bgmean < 0.2) or %sysevalf(&_bgmean > 5) %then %do;
+            %put WARNING: [calc_ebgm] Background prior mean &_bgmean is implausible.;
+            %put WARNING- [calc_ebgm] It is the no-association bulk of the database and belongs near 1.;
+            %put WARNING- [calc_ebgm] Check the per-start negative log-likelihood table printed above.;
+        %end;
+    %end;
+
+    %if %sysevalf(&_EBGM_A1 < 1e-4) or %sysevalf(&_EBGM_A2 < 1e-4) %then %do;
+        %put WARNING: [calc_ebgm] A shape parameter is near the exp(-14) clamp;
+        %put WARNING- [calc_ebgm] (alpha1=&_EBGM_A1 alpha2=&_EBGM_A2). The fit is degenerate, not converged.;
     %end;
 
     /* The join is positional, so a row-count mismatch would silently pair
