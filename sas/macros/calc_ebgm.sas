@@ -262,7 +262,7 @@
     %local i dsid rc var vnum vtype bad nval nin nout iml_ok nebgm _bgmean;
 
     %global _EBGM_P _EBGM_A1 _EBGM_B1 _EBGM_A2 _EBGM_B2
-            _EBGM_ITER _EBGM_LL _EBGM_CONV _EBGM_NFIT _EBGM_NBIN;
+            _EBGM_ITER _EBGM_LL _EBGM_CONV _EBGM_NFIT _EBGM_NBIN _EBGM_TRUNC;
 
     /* Seeded to missing before anything can fail. A caller that writes
        "value = &_EBGM_P;" into a DATA step must get a valid statement even
@@ -272,6 +272,9 @@
     %let _EBGM_A2   = .;   %let _EBGM_B2   = .;   %let _EBGM_ITER = .;
     %let _EBGM_LL   = .;   %let _EBGM_CONV = 0;   %let _EBGM_NFIT = .;
     %let _EBGM_NBIN = .;
+    /* Published so the caller's QC can record WHICH likelihood produced the
+       parameters. With two fits available that is not optional metadata. */
+    %let _EBGM_TRUNC = &truncate;
 
     /*----------------------------------------------------------------------
       1. Validate parameters - fail loudly and early rather than writing an

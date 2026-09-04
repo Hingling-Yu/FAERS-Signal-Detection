@@ -643,23 +643,35 @@ data work.qc_ebgm_model;
     value     = &_EBGM_B2;
     note      = 'Larger beta2 = tighter signal component';    output;
 
-    parameter = 'EM iterations run';
-    value     = &_EBGM_ITER;
-    note      = "Cap = 200; see calc_ebgm.sas MAX_ITER=";     output;
+    parameter = 'Zero-truncated likelihood (1 = yes)';
+    value     = &_EBGM_TRUNC;
+    note      = '0 = the spec mixture, biased upward here; see calc_ebgm.sas'; output;
 
-    parameter = 'EM converged (1 = yes)';
+    parameter = 'Background prior mean (alpha1/beta1)';
+    value     = &_EBGM_A1 / &_EBGM_B1;
+    note      = 'Near 1 if truncated; around 2.6 is the cost of truncate=0'; output;
+
+    parameter = 'Signal prior mean (alpha2/beta2)';
+    value     = &_EBGM_A2 / &_EBGM_B2;
+    note      = 'The tail component the mixture reserves for real signal'; output;
+
+    parameter = 'Simplex iterations (final restart)';
+    value     = &_EBGM_ITER;
+    note      = "Cap = 2000; the fit is 5 starts, each restarted once";  output;
+
+    parameter = 'Fit converged (1 = yes)';
     value     = &_EBGM_CONV;
     note      = 'Must be 1 - otherwise the prior is not a fit'; output;
 
     parameter = 'Final log-likelihood';
     value     = &_EBGM_LL;
-    note      = 'Marginal NB mixture log-likelihood at the optimum'; output;
+    note      = 'NB mixture log-likelihood at the optimum, all five starts agreed'; output;
 
     parameter = 'Pairs used in the fit';
     value     = &_EBGM_NFIT;
     note      = 'Rows with a>0 and positive marginals';       output;
 
-    parameter = 'Squashed bins the EM saw';
+    parameter = 'Squashed bins the fit saw';
     value     = &_EBGM_NBIN;
     note      = 'Pairs binned by (a, E); EBGM itself is still per pair'; output;
 
