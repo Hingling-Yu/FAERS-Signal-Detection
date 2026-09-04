@@ -3,15 +3,18 @@
  *
  * Purpose:  Phase 2 core engine. Builds the case-level drug x reaction
  *           contingency table for every Primary Suspect drug in the cleaned
- *           FAERS database, computes PRR and ROR with 95% CIs, and applies
- *           the Evans signal criteria.
+ *           FAERS database, computes PRR and ROR with 95% CIs and the
+ *           empirical Bayes EBGM with its 90% credible interval, and applies
+ *           the Evans, ROR and MGPS signal criteria.
  *
  * Inputs:   CLEAN.DRUG   role_cod, prod_ai   (produced by 01_import_clean.sas)
  *           CLEAN.REAC   pt
  *
  * Outputs:  SIGNAL.ALL_SIGNALS                    every evaluated pair, flagged
  *           &OUT_TABLES/all_signals_flagged.csv   Evans-flagged subset
+ *           &OUT_TABLES/signals_ebgm.csv          EBGM-flagged subset
  *           &OUT_QC/qc_signal_engine.csv          run audit
+ *           &OUT_QC/qc_ebgm_model.csv             fitted MGPS prior
  *
  * Scope:    FULL database. No drug-class filter is applied here - the GLP-1
  *           cohort is carved out of SIGNAL.ALL_SIGNALS downstream, so the
@@ -35,6 +38,22 @@
  *   The unit of analysis is the CASE (primaryid), not the drug record. A
  *   case listing the same ingredient on three drug lines is one case, so
  *   every cell is counted on de-duplicated primaryid values.
+ *
+ * -----------------------------------------------------------------------
+ * METHOD - three criteria, not one
+ * -----------------------------------------------------------------------
+ *   PRR (Evans) and ROR are frequentist ratios computed one pair at a time.
+ *   Both are at their least trustworthy exactly where a full-database screen
+ *   produces the most rows: rare drugs with one or two reports, where a
+ *   single case can drive the ratio into double digits.
+ *
+ *   EBGM answers the same question with the whole database as a prior. The
+ *   MGPS mixture is fitted once across every pair, then each pair is shrunk
+ *   toward that background by an amount set by its own evidence, so a
+ *   500-case association barely moves and a 1-case association collapses
+ *   toward 1. Reporting all three side by side is what lets section 7
+ *   measure how much of the Evans and ROR signal list is sparse-cell noise
+ *   rather than asserting it. See macros/calc_ebgm.sas for the method.
  *
  * -----------------------------------------------------------------------
  * METHOD - why every cell comes from the same universe
@@ -63,8 +82,9 @@
  *   cuts the pairs table to ~24 bytes per row at the cost of two extra
  *   lookup tables, and is the first thing to try before trimming scope.
  *
- * Runtime:  roughly 20-40 minutes on SAS ODA. The GROUP BY that produces a
- *           is the dominant step.
+ * Runtime:  roughly 30-55 minutes on SAS ODA. The GROUP BY that produces a
+ *           is the dominant step; the EBGM fit adds roughly 5-15 minutes,
+ *           most of it in the EB05 / EB95 bisection.
  *
  * Author:   Hingling Yu
  * Created:  2026-09-03
@@ -81,6 +101,7 @@
 
 %include "&SAS_PATH./macros/calc_prr.sas";
 %include "&SAS_PATH./macros/calc_ror.sas";
+%include "&SAS_PATH./macros/calc_ebgm.sas";
 
 /* 00_config.sas turns MPRINT and SYMBOLGEN on. Useful when debugging a
    single macro call, unreadable across a run that generates several million
@@ -298,14 +319,20 @@ quit;
 /*==========================================================================
   5. DISPROPORTIONALITY MEASURES
   --------------------------------------------------------------------------
-  Both macros are pure row-wise DATA steps and accept ds_out = ds_in. The
-  intermediates are named out here for a readable log and deleted straight
-  after, which keeps at most two copies of a multi-million-row table on disk
-  at once. On a tighter quota, write both in place instead.
+  The two ratio macros are pure row-wise DATA steps and accept ds_out =
+  ds_in. The intermediates are named out here for a readable log and deleted
+  straight after, which keeps at most two copies of a multi-million-row
+  table on disk at once. On a tighter quota, write them in place instead.
 
   Zero cells come back as missing PRR / ROR, not as zero - see the macro
   headers. Section 6 relies on SAS treating missing as smaller than any
   number, so a non-evaluable pair can never satisfy a >= threshold test.
+
+  %calc_ebgm is the odd one out: it is a PROC IML step, not a DATA step,
+  because the MGPS prior is fitted across every pair at once rather than row
+  by row. It reads n_drug and n_reac - carried through untouched from
+  section 4b by both ratio macros - and takes N as a macro variable NAME, so
+  the engine's own &TOTAL_N is the single source of the analysis universe.
   ==========================================================================*/
 %calc_prr(ds_in=work.counts_2x2, ds_out=work.with_prr);
 
@@ -322,6 +349,15 @@ proc datasets library=work nolist;
 quit;
 
 %_stamp(ROR computed.)
+
+%calc_ebgm(ds_in=work.with_prr_ror, ds_out=work.with_all_measures,
+           total_n=TOTAL_N);
+
+proc datasets library=work nolist;
+    delete with_prr_ror;
+quit;
+
+%_stamp(EBGM computed.)
 
 
 /*==========================================================================
@@ -342,11 +378,24 @@ quit;
     &MIN_CASES so the difference between the two criteria is measured rather
     than assumed, and the CSV export is restricted to the Evans set, which
     carries the case-count floor.
+
+  signal_ebgm - the FDA / MGPS criterion: EB05 >= 2, i.e. the 5th percentile
+    of the posterior still sits at twice the expected count. It carries no
+    minimum case count either, and unlike signal_ror it does not need one:
+    the Bayesian shrinkage already pulls a one-case pair back toward 1, so a
+    sparse pair cannot reach EB05 >= 2 on its own. That is the whole point of
+    the method, and section 7 checks it holds on this database rather than
+    taking it on faith.
+
+    The threshold is written literally rather than pulled from 00_config.sas
+    because 2 is not a tuning knob here - it is the published FDA screening
+    cutoff, and the same number as &PRR_THRESHOLD only by coincidence of
+    scale.
   ==========================================================================*/
 data work.flagged;
-    set work.with_prr_ror;
+    set work.with_all_measures;
 
-    length signal_flag signal_ror 8;
+    length signal_flag signal_ror signal_ebgm 8;
 
     signal_flag = (a >= &MIN_CASES
                    and PRR      >= &PRR_THRESHOLD
@@ -354,12 +403,21 @@ data work.flagged;
 
     signal_ror  = (ROR_LCL > 1);
 
+    signal_ebgm = (EB05 >= 2);
+
     /* Not evaluable is not the same as no signal: a zero cell means the
-       measure is undefined, which both flags above score as 0. Carrying the
-       distinction explicitly stops a downstream reader counting them as
+       measure is undefined, which all three flags above score as 0. Carrying
+       the distinction explicitly stops a downstream reader counting them as
        screened-and-cleared. */
-    length evaluable 8;
-    evaluable = (nmiss(PRR, ROR) = 0);
+    length evaluable ebgm_evaluable 8;
+    evaluable      = (nmiss(PRR, ROR) = 0);
+
+    /* Kept separate from EVALUABLE on purpose. PRR and ROR need all four
+       2x2 cells non-zero; EBGM needs only a > 0 and positive marginals, so
+       it is computable on strictly more pairs. Without both counts the QC
+       table cannot say whether an EBGM-only signal is a real difference in
+       method or just a difference in denominator. */
+    ebgm_evaluable = (not missing(EBGM));
 
     /* The SIGF format from 00_config.sas is applied at display time in
        section 7, never stored on the dataset. PROC EXPORT writes FORMATTED
@@ -368,29 +426,37 @@ data work.flagged;
        and it would also break in any session that reads SIGNAL.ALL_SIGNALS
        without first running 00_config.sas, since SIGF lives in WORK. */
 
-    label signal_flag = 'Evans signal (PRR)'
-          signal_ror  = 'ROR signal (LCL > 1)'
-          evaluable   = 'PRR and ROR both computable';
+    label signal_flag    = 'Evans signal (PRR)'
+          signal_ror     = 'ROR signal (LCL > 1)'
+          signal_ebgm    = 'MGPS signal (EB05 >= 2)'
+          evaluable      = 'PRR and ROR both computable'
+          ebgm_evaluable = 'EBGM computable';
 run;
 
 proc datasets library=work nolist;
-    delete with_prr_ror;
+    delete with_all_measures;
 quit;
 
 /* Full table - signals and non-signals both. The flag columns separate them;
    dropping the non-signals here would make it impossible to show what was
    screened, which is the part a reviewer asks about first.
 
-   Descending PRR puts missing values last, because SAS sorts missing below
+   Sorted by the two flags first and EBGM last: the head of the table is the
+   set of pairs both the frequentist and the Bayesian screen agree on,
+   ordered by the shrunk estimate rather than the raw ratio. Ordering by PRR
+   instead would put single-case pairs with astronomical ratios on top, which
+   is the opposite of what a reviewer wants to read first.
+
+   Descending EBGM puts missing values last, because SAS sorts missing below
    every number - non-evaluable pairs therefore land at the bottom of their
    flag group rather than the top.
 
    This is the widest step in the program: several million rows carrying
    prod_ai $500. If it fails on utility-file space, add TAGSORT - it sorts
-   the two BY keys alone and gathers the rows afterwards, trading a much
+   the BY keys alone and gathers the rows afterwards, trading a much
    smaller temporary footprint for a slower final pass. */
 proc sort data=work.flagged out=signal.all_signals;
-    by descending signal_flag descending PRR;
+    by descending signal_flag descending signal_ebgm descending EBGM;
 run;
 
 proc datasets library=work nolist;
@@ -421,6 +487,28 @@ proc sql noprint;
     select count(*)                                    into :QC_ROR_THIN trimmed
         from signal.all_signals
         where signal_ror = 1 and a < &MIN_CASES;
+
+    /* EBGM block. QC_EBGM_THIN is the claim in section 6 put to the test:
+       if shrinkage really does protect against sparse cells, almost none of
+       the EBGM signals should sit below the case-count floor that Evans has
+       to impose by hand. */
+    select sum(ebgm_evaluable)                         into :QC_EBEVAL   trimmed
+        from signal.all_signals;
+    select sum(signal_ebgm)                            into :QC_EBGM     trimmed
+        from signal.all_signals;
+    select count(*)                                    into :QC_ALL3     trimmed
+        from signal.all_signals
+        where signal_flag = 1 and signal_ror = 1 and signal_ebgm = 1;
+    select count(*)                                    into :QC_EBGM_THIN trimmed
+        from signal.all_signals
+        where signal_ebgm = 1 and a < &MIN_CASES;
+
+    /* Mean shrinkage. EBGM/RR is 1 when the data overwhelm the prior and
+       approaches 0 as the evidence thins, so the average over the database
+       is a single number for how hard the prior is pulling. */
+    select avg(EBGM / RR)                              into :QC_SHRINK   trimmed
+        from signal.all_signals
+        where ebgm_evaluable = 1 and RR > 0;
 quit;
 
 data work.qc_signal;
@@ -442,13 +530,29 @@ data work.qc_signal;
     value  = &QC_ROR;
     note   = 'No minimum case count applied';             output;
 
-    metric = 'Signals - both criteria';
+    metric = 'Signals - both PRR and ROR criteria';
     value  = &QC_BOTH;
-    note   = 'Intersection, the most defensible subset';  output;
+    note   = 'Intersection of the two frequentist criteria'; output;
 
     metric = "ROR signals with a < &MIN_CASES";
     value  = &QC_ROR_THIN;
     note   = 'Sparse-cell ROR flags, excluded by Evans';  output;
+
+    metric = 'Pairs with computable EBGM';
+    value  = &QC_EBEVAL;
+    note   = 'Needs a>0 only - more pairs than PRR/ROR can evaluate'; output;
+
+    metric = 'Signals - EBGM (EB05 >= 2)';
+    value  = &QC_EBGM;
+    note   = 'FDA MGPS criterion, no case-count floor applied'; output;
+
+    metric = "EBGM signals with a < &MIN_CASES";
+    value  = &QC_EBGM_THIN;
+    note   = 'Should be near 0 - shrinkage replaces the floor'; output;
+
+    metric = 'Signals - all three criteria';
+    value  = &QC_ALL3;
+    note   = 'Evans AND ROR AND EBGM, the most defensible subset'; output;
 
     metric = 'Analysis universe N (cases)';
     value  = &TOTAL_N;
@@ -474,24 +578,94 @@ proc print data=work.qc_signal noobs label;
     format value comma16.;
 run;
 
-/* Agreement between the two criteria, and the one place the SIGF format
-   earns its keep - applied to the display, not stored on the data. */
-title2 "Evans vs ROR criteria - agreement";
-proc freq data=signal.all_signals;
-    tables signal_flag * signal_ror / norow nocol nopercent;
-    format signal_flag signal_ror sigf.;
+/* The fitted MGPS prior gets its own table rather than extra rows in
+   WORK.QC_SIGNAL. That table's VALUE column is printed with COMMA16., which
+   is right for counts in the millions and would round a mixing weight of
+   0.63 to 1. Mixing magnitudes in one column costs either the commas or the
+   decimals; two tables cost neither.
+
+   These parameters are the audit trail for the EBGM column: two runs on the
+   same data must produce the same five numbers, and a reviewer who wants to
+   reproduce an EBGM by hand needs them. All come from macros/calc_ebgm.sas
+   via the global macro variables it sets. */
+data work.qc_ebgm_model;
+    length parameter $44 value 8 note $90;
+
+    parameter = 'Mixing weight P';
+    value     = &_EBGM_P;
+    note      = 'Prior probability a pair is background (component 1)'; output;
+
+    parameter = 'alpha1 (background shape)';
+    value     = &_EBGM_A1;
+    note      = 'Component 1 prior mean = alpha1 / beta1';    output;
+
+    parameter = 'beta1 (background rate)';
+    value     = &_EBGM_B1;
+    note      = 'Larger beta1 = tighter background around its mean'; output;
+
+    parameter = 'alpha2 (signal shape)';
+    value     = &_EBGM_A2;
+    note      = 'Component 2 prior mean = alpha2 / beta2';    output;
+
+    parameter = 'beta2 (signal rate)';
+    value     = &_EBGM_B2;
+    note      = 'Larger beta2 = tighter signal component';    output;
+
+    parameter = 'EM iterations run';
+    value     = &_EBGM_ITER;
+    note      = "Cap = 200; see calc_ebgm.sas MAX_ITER=";     output;
+
+    parameter = 'EM converged (1 = yes)';
+    value     = &_EBGM_CONV;
+    note      = 'Must be 1 - otherwise the prior is not a fit'; output;
+
+    parameter = 'Final log-likelihood';
+    value     = &_EBGM_LL;
+    note      = 'Marginal NB mixture log-likelihood at the optimum'; output;
+
+    parameter = 'Pairs used in the fit';
+    value     = &_EBGM_NFIT;
+    note      = 'Rows with a>0 and positive marginals';       output;
+
+    parameter = 'Mean shrinkage EBGM / RR';
+    value     = &QC_SHRINK;
+    note      = '1 = no shrinkage; lower = prior pulling harder'; output;
+
+    label parameter = 'MGPS model parameter' value = 'Value' note = 'Note';
 run;
 
-/* Sanity check. The sort in section 6 already put the strongest Evans
-   signals first, so the first 20 rows ARE the top 20 by PRR. Expect the
-   familiar shape of a full-database run: very rare drugs paired with very
-   specific PTs, high PRR on small a. That is not a bug - it is why the
-   case-count floor and the CI bounds are reported next to the point
-   estimate. */
-title2 "Top 20 Evans signals by PRR - sanity check";
+proc export data=work.qc_ebgm_model
+            outfile="&OUT_QC./qc_ebgm_model.csv" dbms=csv replace;
+run;
+
+title2 "Phase 2 - fitted MGPS prior (two-component Gamma mixture)";
+proc print data=work.qc_ebgm_model noobs label;
+    format value best12.;
+run;
+
+/* Agreement between the criteria, and the one place the SIGF format earns
+   its keep - applied to the display, not stored on the data. The Evans x
+   EBGM cell counts are the headline: the off-diagonal is the disagreement
+   between a frequentist ratio and a shrunk Bayesian one, which is the whole
+   reason for computing both. */
+title2 "Criteria agreement - Evans vs ROR vs EBGM";
+proc freq data=signal.all_signals;
+    tables signal_flag * signal_ror
+           signal_flag * signal_ebgm
+           signal_ror  * signal_ebgm / norow nocol nopercent;
+    format signal_flag signal_ror signal_ebgm sigf.;
+run;
+
+/* Sanity check. The sort in section 6 already put the pairs that satisfy
+   both Evans and EBGM first, ordered by EBGM, so the first 20 rows ARE the
+   top 20 by the shrunk estimate. Expect well-populated pairs here - high a,
+   RR and EBGM close together. If instead the head of the table is full of
+   a=1 rows with EBGM far below RR, the shrinkage is not doing its job and
+   the fitted prior in the model card above is the first thing to check. */
+title2 "Top 20 signals by EBGM - sanity check";
 proc print data=signal.all_signals(obs=20) noobs label;
-    var prod_ai pt a b c d PRR PRR_LCL PRR_UCL PRR_CHI2 ROR ROR_LCL ROR_UCL;
-    format a b c d comma12. PRR PRR_LCL PRR_UCL ROR ROR_LCL ROR_UCL 10.4
+    var prod_ai pt a E RR EBGM EB05 EB95 PRR PRR_CHI2 ROR ROR_LCL;
+    format a comma12. E RR EBGM EB05 EB95 PRR ROR ROR_LCL 10.4
            PRR_CHI2 12.2;
 run;
 title2;
@@ -503,6 +677,15 @@ title2;
    criteria stay visible for the rows that are exported. */
 proc export data=signal.all_signals(where=(signal_flag = 1))
             outfile="&OUT_TABLES./all_signals_flagged.csv" dbms=csv replace;
+run;
+
+/* The EBGM set exported separately rather than merged into the file above.
+   Keeping them apart is what makes the two files comparable: Phase 2 Step 3
+   validates the engine against known positive controls, and "which criterion
+   found it" is the question that validation has to answer. Every exported
+   row still carries all three flags, so either file can be re-filtered. */
+proc export data=signal.all_signals(where=(signal_ebgm = 1))
+            outfile="&OUT_TABLES./signals_ebgm.csv" dbms=csv replace;
 run;
 
 
@@ -518,16 +701,32 @@ run;
     %put NOTE: Pairs evaluated  = %sysfunc(putn(&QC_PAIRS, comma16.));
     %put NOTE: Evans signals    = %sysfunc(putn(&QC_EVANS, comma16.));
     %put NOTE: ROR signals      = %sysfunc(putn(&QC_ROR, comma16.));
-    %put NOTE: Both criteria    = %sysfunc(putn(&QC_BOTH, comma16.));
+    %put NOTE: EBGM signals     = %sysfunc(putn(&QC_EBGM, comma16.));
+    %put NOTE: PRR + ROR        = %sysfunc(putn(&QC_BOTH, comma16.));
+    %put NOTE: All 3 criteria   = %sysfunc(putn(&QC_ALL3, comma16.));
+    %put NOTE: MGPS prior       = P=&_EBGM_P a1=&_EBGM_A1 b1=&_EBGM_B1 a2=&_EBGM_A2 b2=&_EBGM_B2;
+    %put NOTE: EM               = &_EBGM_ITER iterations, converged=&_EBGM_CONV;
+    %put NOTE: Mean EBGM/RR     = &QC_SHRINK;
     %put NOTE: Output           = SIGNAL.ALL_SIGNALS;
     %put NOTE: CSV              = &OUT_TABLES./all_signals_flagged.csv;
+    %put NOTE: CSV              = &OUT_TABLES./signals_ebgm.csv;
     %put NOTE: QC               = &OUT_QC./qc_signal_engine.csv;
+    %put NOTE: QC               = &OUT_QC./qc_ebgm_model.csv;
     %put NOTE: Elapsed          = %sysfunc(putn(&e, time12.2));
     %put NOTE: ============================================;
 
     %if &N_BADCELL > 0 %then %do;
         %put ERROR: Gate 2 FAILED - the 2x2 assertion in section 4c did not pass.;
         %put ERROR- Do not use SIGNAL.ALL_SIGNALS until this is resolved.;
+    %end;
+
+    /* A non-converged EM is not a hard failure - the last-iteration
+       parameters still produce usable estimates - but the EBGM column is no
+       longer reproducible from a stated fit, so it must not pass Gate 2b
+       unreviewed. */
+    %if &_EBGM_CONV ne 1 %then %do;
+        %put WARNING: The MGPS EM did not converge in &_EBGM_ITER iterations.;
+        %put WARNING- EBGM, EB05 and EB95 use last-iteration parameters. Review before use.;
     %end;
 %mend finish;
 
