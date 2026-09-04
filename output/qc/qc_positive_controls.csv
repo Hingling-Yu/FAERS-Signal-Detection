@@ -1,0 +1,10 @@
+metric,value,note
+Positive controls defined,8,Known drug x reaction pairs the engine must recover
+Detected - Evans (signal_flag = 1),8,Gate 2 criterion - must be 8
+Detected - ROR (signal_ror = 1),8,Expected to agree with Evans on all 8
+Detected - EBGM (signal_ebgm = 1),8,Informational - MGPS shrinkage may miss sparse pairs
+Detected - all three criteria,8,Strongest validation of the engine
+Missed controls,0,Must be 0 - any miss is an engine defect
+PRR in published range,8,"Plausibility check, not a gate"
+PRR above published range,0,Can reflect a different FAERS window or background
+PRR below published range,0,Investigate if > 0 - under-detection is the concern
