@@ -68,3 +68,9 @@ Thumbs.db
 CLAUDE.md
 STATUS.md
 CHARTER.md
+
+# Implementation specs handed to the coding agent, and its raw session
+# output. Same reasoning as the three files above - process, not product -
+# and not published while the project is still in flight.
+docs/
+Claude outputs/
