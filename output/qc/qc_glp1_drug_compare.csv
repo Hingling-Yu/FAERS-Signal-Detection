@@ -1,0 +1,23 @@
+metric,value,note
+Analysis universe N,1529453,"Must equal 1,529,453 - the engine universe"
+Rows with a missing or negative 2x2 cell,0,Must be 0
+Layer 3 n_drugs_signal out of range,0,Must be 0 - the range is 1 to 4
+Base rows (all four grains),15315,Rows in SIGNAL.GLP1_BASE_SIGNALS
+Base rows at GROUP grain,48,Class-effect rows - never additive with PT rows
+DULAGLUTIDE x Pancreatitis PRR,5.8512408846,Step 2 5.8512 - diff 0.00 % vs band 2.00 %
+LIRAGLUTIDE x Pancreatitis PRR,5.9220109724,Step 2 6.3980 - diff -7.44 % vs band 9.43 %
+SEMAGLUTIDE x Pancreatitis PRR,6.183366863,Step 2 6.1774 - diff 0.10 % vs band 2.15 %
+TIRZEPATIDE x Pancreatitis PRR,3.8749359305,Step 2 3.8635 - diff 0.30 % vs band 2.12 %
+Layer 1 rows,460,"Evans signal on SEMA or TIRZ, both grains"
+signalling on both molecules,108,Shared signals
+SEMAGLUTIDE only,261,"Evans on SEMA, not on TIRZ"
+TIRZEPATIDE only,91,"Evans on TIRZ, not on SEMA"
+with disjoint 95% CIs,177,ci_overlap=0 - the defensible difference subset
+Layer 2 rows,360,"Evans signal on either generation, both grains"
+NEWER ONLY,217,Signals in SEMA+TIRZ and not in DULA+LIRA
+OLDER ONLY,53,Signals in DULA+LIRA and not in SEMA+TIRZ
+NEWER HIGHER / OLDER HIGHER,61,ratio >1.5: 21 - ratio <0.67: 40
+SIMILAR,29,"Both signal, ratio between 0.67 and 1.5"
+with disjoint 95% CIs,112,ci_overlap=0 - the defensible difference subset
+Layer 3 events flagged by 4 molecules,27,Class-wide - the strongest consistency evidence
+by 3 / 2 / 1 molecule(s),500,3: 39 - 2: 109 - 1: 352

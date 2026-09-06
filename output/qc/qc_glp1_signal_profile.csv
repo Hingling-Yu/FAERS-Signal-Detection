@@ -1,0 +1,24 @@
+metric,value,note
+GLP-1 prod_ai x PT pairs,9630,Rows in SIGNAL.GLP1_SIGNALS
+Distinct prod_ai strings matched,27,Molecules alone plus compounded variants
+Distinct PTs,4917,MedDRA Preferred Terms across the class
+Pairs with computable PRR,9538,Remainder had a zero 2x2 cell - not evaluable
+Evans signals (signal_flag=1),811,"a>=3, PRR>=2, chi2>=4"
+DULAGLUTIDE Evans signals,104,"104 single-ingredient, from 903 pairs / 1 prod_ai"
+LIRAGLUTIDE Evans signals,135,"108 single-ingredient, from 1,171 pairs / 2 prod_ai"
+SEMAGLUTIDE Evans signals,368,"363 single-ingredient, from 3,902 pairs / 11 prod_ai"
+TIRZEPATIDE Evans signals,204,"192 single-ingredient, from 3,654 pairs / 14 prod_ai"
+ROR signals (signal_ror=1),1894,"ROR 95% CI lower bound > 1, no case-count floor"
+EBGM signals (signal_ebgm=1),669,"EB05 >= 2, the FDA MGPS criterion"
+All three criteria,466,Evans AND ROR AND EBGM - the most defensible subset
+DULAGLUTIDE cases in 2x2,4028,"Step 1 cohort 4,028 - difference 0.00 %"
+LIRAGLUTIDE cases in 2x2,1830,"Step 1 cohort 1,830 - difference 0.00 %"
+SEMAGLUTIDE cases in 2x2,35705,"Step 1 cohort 35,705 - difference 0.00 %"
+TIRZEPATIDE cases in 2x2,70111,"Step 1 cohort 70,111 - difference 0.00 %"
+Pairs on a combination prod_ai,694,single_ingredient=0 - compounded or combination products
+Evans signals excluded as a combination,44,"Kept in GLP1_SIGNALS, held out of the top table"
+Top-20 slots held by a combination,0,Must be 0 - the single_ingredient filter guarantees it
+Rows in the top-signals table,80,"Up to 20 per molecule, fewer where signals are scarce"
+SEMAGLUTIDE x Pancreatitis PRR,6.1774,Gate 2 positive control - expected 6.18 on 456 cases
+SEMAGLUTIDE x Pancreatitis rank (EBGM),92,Position within SEMAGLUTIDE - <=20 means it makes the table
+SEMAGLUTIDE x Pancreatitis rank (PRR),125,Same set ordered by PRR - not the 129 of the unfiltered run
