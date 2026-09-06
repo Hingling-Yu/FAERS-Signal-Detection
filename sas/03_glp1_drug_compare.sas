@@ -560,10 +560,22 @@ quit;
   ==========================================================================*/
 
 /* Reconciliation against Step 2. Deliberately NOT an equality test: Step 2
-   computed SEMAGLUTIDE x Pancreatitis at prod_ai grain on 35,651 cases,
-   while this program works at drug_label grain and so includes the
-   compounded variants - 35,705 cases. The two must be close; they cannot be
-   identical, and a gate demanding equality would fail on correct output. */
+   measured at prod_ai grain, this program at drug_label grain, which adds
+   each molecule's combination products to the denominator. The two must be
+   close; they cannot be identical.
+
+   The tolerance is DERIVED, not fixed. A first run used a flat 5% and
+   flagged LIRAGLUTIDE at -7.44%, which turned out to be the gate being wrong
+   rather than the data: INSULIN DEGLUDEC\LIRAGLUTIDE (Xultophy) is a
+   marketed fixed-dose combination carrying 136 of LIRAGLUTIDE's 1,830 cases
+   - 7.43% of the cohort - and those cases report almost no pancreatitis, so
+   a/(a+b) falls by very nearly that share. 7.43% expected, 7.44% observed.
+
+   The other three molecules sit at 0.15%, 0.12% and 0.00%, which is why a
+   flat 5% looked adequate until a molecule with a real combination product
+   was tested. The band is therefore each molecule's own combination share
+   plus two points - for rounding, and for the reports those combination
+   cases do contribute. */
 %let RECON_OK = 1;
 
 %macro reconcile;
@@ -574,8 +586,9 @@ quit;
        DATA step in this section SETs WORK.RECON unconditionally, and a
        skipped reconciliation must leave it empty rather than absent. */
     data work.recon;
-        length drug_label $20 step2_prr 8 step3_prr 8 pct_diff 8;
-        format pct_diff 8.2;
+        length drug_label $20 step2_prr 8 step3_prr 8 pct_diff 8
+               combo_pct 8 tol 8;
+        format pct_diff combo_pct tol 8.2;
         stop;
     run;
 
@@ -586,23 +599,44 @@ quit;
     %end;
 
     proc sql;
+        /* Each molecule's combination-product share of its own cohort. The
+           drug_label cohort is the single-ingredient cohort plus exactly
+           these cases, so this share IS the expected size of the gap - a
+           measurement, not a tuning knob. GLP1_CASES holds one row per
+           primaryid x drug_label, so a case is counted once and carries a
+           single prod_ai. */
+        create table work.combo_share as
+            select      c.drug_label,
+                        count(distinct c.primaryid) as cohort_cases,
+                        count(distinct case
+                                  when upcase(strip(c.prod_ai))
+                                       ne upcase(strip(c.drug_label))
+                                  then c.primaryid end) as combo_cases
+            from        clean.glp1_cases as c
+            inner join  work.universe    as u on c.primaryid = u.primaryid
+            group by    c.drug_label;
+
         create table work.recon as
             select      b.cohort as drug_label length=20,
                         s.PRR as step2_prr,
                         b.PRR as step3_prr,
-                        100 * (b.PRR - s.PRR) / s.PRR as pct_diff format=8.2
+                        100 * (b.PRR - s.PRR) / s.PRR          as pct_diff  format=8.2,
+                        100 * cs.combo_cases / cs.cohort_cases as combo_pct format=8.2,
+                        calculated combo_pct + 2               as tol       format=8.2
             from        (select cohort, PRR from work.base_drug_pt
                          where upcase(strip(event)) = 'PANCREATITIS') as b
             inner join  (select drug_label, PRR from signal.glp1_signals
                          where single_ingredient = 1
                            and upcase(strip(pt)) = 'PANCREATITIS')    as s
                    on   b.cohort = s.drug_label
+            inner join  work.combo_share as cs
+                   on   b.cohort = cs.drug_label
             order by    b.cohort;
     quit;
 
     proc sql noprint;
         select count(*) into :N_RECON_OOT trimmed
-            from work.recon where abs(pct_diff) > 5;
+            from work.recon where abs(pct_diff) > tol;
     quit;
 
     data _null_;
@@ -611,9 +645,13 @@ quit;
         msg = catx(' ', strip(drug_label), 'x Pancreatitis - Step 2 (prod_ai)',
                         strip(put(step2_prr, 10.4)), 'vs Step 3 (drug_label)',
                         strip(put(step3_prr, 10.4)),
-                        cats('(', strip(put(pct_diff, 8.2)), '%)'));
-        if abs(pct_diff) > 5 then put 'WARNING: ' msg ' - outside the 5% band.';
-        else                      put 'NOTE: '    msg ' - reconciles.';
+                        cats('(', strip(put(pct_diff, 8.2)), '%,'),
+                        'band', cats(strip(put(tol, 8.2)), '%'),
+                        'from', cats(strip(put(combo_pct, 8.2)), '%'),
+                        'combination cases)');
+        if abs(pct_diff) > tol then
+             put 'WARNING: ' msg ' - outside the derived band.';
+        else put 'NOTE: '    msg ' - reconciles.';
     run;
 %mend reconcile;
 
@@ -683,8 +721,9 @@ data work.qc_drug_compare;
         set work.recon end=_eof1;
         metric = '  ' || strip(drug_label) || ' x Pancreatitis PRR';
         value  = step3_prr;
-        note   = catx(' ', 'Step 2 prod_ai grain', strip(put(step2_prr, 10.4)),
-                           '- difference', strip(put(pct_diff, 8.2)), '%');
+        note   = catx(' ', 'Step 2', strip(put(step2_prr, 10.4)), '- diff',
+                           strip(put(pct_diff, 8.2)), '% vs band',
+                           strip(put(tol, 8.2)), '%');
         output;
     end;
 
@@ -755,10 +794,10 @@ run;
 
     %if &RECON_OK = 1 %then %do;
         %if &N_RECON_OOT = 0 %then
-            %put NOTE: Step 2 reconciliation passed - all four molecules within 5%%.;
+            %put NOTE: Step 2 reconciliation passed - every molecule inside its derived band.;
         %else %do;
-            %put WARNING: &N_RECON_OOT molecule(s) more than 5%% from the Step 2 PRR.;
-            %put WARNING- Expected a small gap: Step 2 is prod_ai grain, this is drug_label.;
+            %put WARNING: &N_RECON_OOT molecule(s) outside the combination-share band.;
+            %put WARNING- The expected gap is the combination-product share for that molecule.;
             %put WARNING- A large one means the cohorts differ, not just the grain.;
         %end;
     %end;
@@ -798,27 +837,28 @@ proc print data=work.compare_sema_tirz noobs label;
 run;
 title2;
 
-/* --- Save ------------------------------------------------------------- */
+/* --- Save ---------------------------------------------------------------
+   compress=yes on GLP1_BASE_SIGNALS only. The first run measured it: the base
+   table shrinks 35%, while all three comparison tables fit in a single page
+   and the compression header pushed each of them to two. Compression is not
+   free on a table small enough to fit in one page. */
 data signal.glp1_base_signals (compress=yes
         label='GLP-1 2x2 rebuilt from cases - 4 grains, PT and class-effect group');
     length cohort_type $12 cohort $20 event_type $8 event $100;
     set work.base_all;
 run;
 
-data signal.glp1_compare_sema_tirz (compress=yes
-        label='Layer 1 - SEMAGLUTIDE vs TIRZEPATIDE');
+data signal.glp1_compare_sema_tirz (label='Layer 1 - SEMAGLUTIDE vs TIRZEPATIDE');
     length event_type $8 event $100;
     set work.compare_sema_tirz;
 run;
 
-data signal.glp1_compare_generation (compress=yes
-        label='Layer 2 - newer vs older GLP-1 generation');
+data signal.glp1_compare_generation (label='Layer 2 - newer vs older GLP-1 generation');
     length event_type $8 event $100;
     set work.compare_generation;
 run;
 
-data signal.glp1_compare_overview (compress=yes
-        label='Layer 3 - four-molecule overview');
+data signal.glp1_compare_overview (label='Layer 3 - four-molecule overview');
     length event_type $8 event $100;
     set work.compare_overview;
 run;
