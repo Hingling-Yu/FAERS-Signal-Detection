@@ -1,0 +1,19 @@
+metric,value,note
+GLP-1 PS drug records (before dedup),120164,Raw rows from the DRUG x REF_GLP1_DRUG join
+Unique primaryid x drug_label pairs,111674,After NODUPKEY - the GLP1_CASES row count
+Unique primaryids (cases),111673,"COUNT(DISTINCT primaryid) - expected ~111,673"
+DULAGLUTIDE cases,4028,"MySQL expected 4,028 - difference 0.00 %"
+LIRAGLUTIDE cases,1830,"MySQL expected 1,830 - difference 0.00 %"
+SEMAGLUTIDE cases,35705,"MySQL expected 35,705 - difference 0.00 %"
+TIRZEPATIDE cases,70111,"MySQL expected 70,111 - difference 0.00 %"
+Newer generation cases,105815,SEMAGLUTIDE + TIRZEPATIDE
+Older generation cases (comparator),5858,DULAGLUTIDE + LIRAGLUTIDE
+Cross-cohort overlap (>1 drug_label),1,Combination products or within-window switching
+Reactions linked,270548,Rows in GLP1_REAC (distinct case x drug x PT)
+Indications linked,111240,Rows in GLP1_INDI (distinct case x drug x indication)
+Indication rows lost to drug_seq dedup,0,Attached to a drug_seq NODUPKEY dropped - see header
+Outcomes linked,40104,Rows in GLP1_OUTC (distinct case x outcome code)
+Cases with no DEMO match,0,"Must be 0 - a broken referential link, not a data gap"
+Cases with age_grp = Unknown,43030,Missing age or a non-YR age unit - informational
+Cases with missing year_qtr,0,Neither init_fda_dt nor fda_dt parsed - informational
+Cases with imputed date precision,0,init_fda_dt reported as year or month - Step 5 must see
