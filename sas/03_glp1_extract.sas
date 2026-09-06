@@ -123,12 +123,15 @@ options nosymbolgen nomprint;
 
 title "Phase 3 Step 1 - GLP-1 Cohort Extraction";
 
-/* The five CLEAN tables must exist. Without this check the first PROC SQL
-   would fail on an unresolved library member and the log would blame the
-   join rather than the missing prerequisite. */
-%macro require_clean;
+/* Prerequisites, checked before the first join rather than discovered
+   inside it. A missing table makes PROC SQL blame its own FROM clause and
+   then every later step fails on the empty result, so one real problem
+   arrives as forty ERRORs with the cause buried at the top. */
+%macro require_inputs;
     %local i tbl missing;
     %let missing = 0;
+
+    /* The five CLEAN tables 01_import_clean.sas builds. */
     %do i = 1 %to 5;
         %let tbl = %scan(DEMO DRUG REAC INDI OUTC, &i);
         %if %sysfunc(exist(clean.&tbl)) = 0 %then %do;
@@ -140,9 +143,21 @@ title "Phase 3 Step 1 - GLP-1 Cohort Extraction";
         %put ERROR- Run 01_import_clean.sas before this program.;
         %abort cancel;
     %end;
-%mend require_clean;
 
-%require_clean
+    /* WORK.REF_GLP1_DRUG is created by 00_config.sas. Its absence does not
+       mean the include failed - it means the copy of 00_config.sas on SAS
+       ODA predates the class-definition rewrite, back when the class was a
+       quoted %nrstr(&GLP1_DRUGS) list and no reference table existed. The
+       fix is to re-upload sas/00_config.sas, not to edit this program. */
+    %if %sysfunc(exist(work.ref_glp1_drug)) = 0 %then %do;
+        %put ERROR: WORK.REF_GLP1_DRUG does not exist after including 00_config.sas.;
+        %put ERROR- The copy of 00_config.sas on SAS ODA is out of date.;
+        %put ERROR- Re-upload sas/00_config.sas from the repo to &SAS_PATH, then re-run.;
+        %abort cancel;
+    %end;
+%mend require_inputs;
+
+%require_inputs
 
 %_stamp(03_glp1_extract.sas started.)
 
