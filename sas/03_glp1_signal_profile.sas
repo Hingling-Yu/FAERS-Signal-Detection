@@ -40,9 +40,12 @@
  * SIGNAL.ALL_SIGNALS is keyed on prod_ai, the raw FAERS ingredient string.
  * 'SEMAGLUTIDE' and 'CYANOCOBALAMIN\SEMAGLUTIDE' are therefore two separate
  * rows with two separate 2x2 tables, and both land under drug_label
- * SEMAGLUTIDE after the join. The MySQL warehouse counts 28 distinct
- * prod_ai strings across the four molecules; 24 of them are compounded or
- * combination products, and together they cover 277 cases out of 111,674.
+ * SEMAGLUTIDE after the join. The MySQL warehouse counts 27 distinct
+ * prod_ai strings across the four molecules; 23 of them are compounded or
+ * combination products, and together they cover 276 cases out of 111,674.
+ * Counting these per drug_label instead gives 28 and 24, because
+ * 'CYANOCOBALAMIN\SEMAGLUTIDE\TIRZEPATIDE' is one string under two labels.
+ * The run confirms the 27: N_PRODAI in the QC table.
  *
  * The consequence is a ranking hazard, not a counting error. A compounded
  * prod_ai reported by 28 cases needs only 3 of them to share one rare PT to
