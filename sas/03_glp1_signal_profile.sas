@@ -52,13 +52,38 @@
  * clear Evans (a >= 3, PRR >= 2, chi2 >= 4) at a PRR in the hundreds - and
  * a PRR-descending top 20 would put that above the real class effects.
  *
- * Two things are done about it, neither of which changes the spec's
- * ranking. SINGLE_INGREDIENT flags whether prod_ai is the molecule alone,
- * so any downstream step can filter in one WHERE clause. The QC report
- * counts how many top-20 slots combination products actually take, and the
- * log warns when that number is not zero. The decision to exclude them is
- * then made against a number rather than a guess - the same treatment
- * 03_glp1_extract.sas gave its indication dedup.
+ * SINGLE_INGREDIENT flags whether prod_ai is the molecule alone.
+ * SIGNAL.GLP1_SIGNALS keeps every row so nothing is lost, and the top-20
+ * table filters on the flag. The first run measured the cost of not
+ * filtering: 13 of 80 top-20 rows rested on a compounded prod_ai, so the
+ * decision was made against a number rather than a guess - the same
+ * treatment 03_glp1_extract.sas gave its indication dedup.
+ *
+ * -----------------------------------------------------------------------
+ * RANKING - EBGM, not PRR
+ * -----------------------------------------------------------------------
+ * The spec ranked the top-20 table by PRR. The first run showed what that
+ * costs: SEMAGLUTIDE x Pancreatitis - the FDA-labelled class effect, and
+ * this project's own Gate 2 positive control at PRR 6.18 on 456 cases -
+ * came 129th and so missed the table entirely.
+ *
+ * That is PRR working as designed, not failing. PRR is a raw ratio with no
+ * penalty for thin evidence, so three reports of a rare PT outrank 456
+ * reports of a labelled one. 02_signal_engine.sas reached the same
+ * conclusion for the full database and sorted ALL_SIGNALS by EBGM for it:
+ * "Ordering by PRR instead would put single-case pairs with astronomical
+ * ratios on top, which is the opposite of what a reviewer wants to read
+ * first." Ranking this table by PRR would have contradicted the engine
+ * that produced it.
+ *
+ * EBGM is the shrunk estimate: a pair resting on few cases is pulled toward
+ * the fitted background, so evidence and effect size are weighed together.
+ * PRR, its CI and its chi-square all stay in the table as comparison
+ * columns - the change is to the ORDER, not to what is reported.
+ *
+ * Descending order puts missing EBGM last, since SAS sorts missing below
+ * every number. In practice no row here has one: EBGM needs only a > 0,
+ * which every Evans signal satisfies by way of a >= 3.
  *
  * A prod_ai naming two class members ('CYANOCOBALAMIN\SEMAGLUTIDE\
  * TIRZEPATIDE') appears once under each drug_label. That is intended and
@@ -193,29 +218,36 @@ quit;
   in a HAVING clause makes PROC SQL remerge - so the sketch can silently
   return the wrong 20 rows. A sorted BY group cannot.
 
-  Restricted to signal_flag = 1: Evans is the project's primary criterion,
-  and it is the only one of the three carrying the a >= 3 floor. Because
-  signal_flag requires PRR >= &PRR_THRESHOLD, no row reaching this step can
-  have a missing PRR, so descending order needs no missing-value guard.
+  Two filters, both departures from the spec and both argued in the header:
 
-  The sort keys after PRR are tie-breakers only. Two pairs with the same PRR
-  rank by case count and then alphabetically, which makes the output
+    signal_flag = 1       Evans is the project's primary criterion and the
+                          only one of the three carrying the a >= 3 floor.
+
+    single_ingredient = 1 the molecule alone. See GRAIN - the alternative
+                          gave 13 of 80 slots to compounded products.
+
+  Ordered by EBGM rather than PRR. See RANKING for why, and note that
+  SIGNAL.GLP1_SIGNALS keeps every row and every measure regardless: this
+  section decides what the deliverable leads with, not what exists.
+
+  The sort keys after EBGM are tie-breakers only. Two pairs with the same
+  EBGM rank by case count and then alphabetically, which makes the output
   reproducible instead of dependent on the order the join happened to emit.
   ==========================================================================*/
 proc sort data=work.glp1_signals out=work.glp1_ranked_in;
-    by drug_label descending PRR descending a pt;
-    where signal_flag = 1;
+    by drug_label descending EBGM descending a pt;
+    where signal_flag = 1 and single_ingredient = 1;
 run;
 
 data work.glp1_ranked;
     set work.glp1_ranked_in;
     by drug_label;
 
-    length prr_rank 8;
-    if first.drug_label then prr_rank = 0;
-    prr_rank + 1;
+    length signal_rank 8;
+    if first.drug_label then signal_rank = 0;
+    signal_rank + 1;
 
-    label prr_rank = 'Rank within molecule by PRR (descending)';
+    label signal_rank = 'Rank within molecule by EBGM (descending)';
 run;
 
 /* Column order is fixed here rather than left to the join: the top-signals
@@ -224,21 +256,21 @@ data work.glp1_top_signals;
     /* RETAIN before SET, which is what actually fixes the column order:
        variable position is set at compile time by first appearance, so the
        same list written after the SET would be a no-op. */
-    retain drug_label generation prod_ai pt single_ingredient prr_rank
+    retain drug_label generation prod_ai pt single_ingredient signal_rank
            a n_drug n_reac
+           EBGM EB05 EB95
            PRR PRR_LCL PRR_UCL PRR_CHI2
            ROR ROR_LCL ROR_UCL
-           EBGM EB05 EB95
            signal_flag signal_ror signal_ebgm;
 
     set work.glp1_ranked;
-    where prr_rank <= 20;
+    where signal_rank <= 20;
 
-    keep drug_label generation prod_ai pt single_ingredient prr_rank
+    keep drug_label generation prod_ai pt single_ingredient signal_rank
          a n_drug n_reac
+         EBGM EB05 EB95
          PRR PRR_LCL PRR_UCL PRR_CHI2
          ROR ROR_LCL ROR_UCL
-         EBGM EB05 EB95
          signal_flag signal_ror signal_ebgm;
 run;
 
@@ -273,6 +305,7 @@ proc sql;
                     coalesce(s.n_pairs,      0) as n_pairs,
                     coalesce(s.n_prod_ai,    0) as n_prod_ai,
                     coalesce(s.n_evans,      0) as n_evans,
+                    coalesce(s.n_evans_single, 0) as n_evans_single,
                     coalesce(s.n_ror,        0) as n_ror,
                     coalesce(s.n_ebgm,       0) as n_ebgm,
                     coalesce(s.n_all3,       0) as n_all3
@@ -281,6 +314,9 @@ proc sql;
                             count(*)                as n_pairs,
                             count(distinct prod_ai) as n_prod_ai,
                             sum(signal_flag)        as n_evans,
+                            sum(case when signal_flag = 1
+                                          and single_ingredient = 1
+                                     then 1 else 0 end) as n_evans_single,
                             sum(signal_ror)         as n_ror,
                             sum(signal_ebgm)        as n_ebgm,
                             sum(case when signal_flag = 1 and signal_ror = 1
@@ -339,10 +375,11 @@ proc sql noprint;
 
     select count(*) into :N_TOP trimmed from work.glp1_top_signals;
 
-    /* Molecules with fewer than 20 Evans signals - their top-20 block is
-       short, which is a property of the data and not a bug. */
+    /* Molecules with fewer than 20 single-ingredient Evans signals - their
+       block is short, which is a property of the data and not a bug. Counted
+       on the same set the top-20 is drawn from, not on all Evans signals. */
     select count(*) into :N_SHORT trimmed
-        from work.sig_by_drug where n_evans < 20;
+        from work.sig_by_drug where n_evans_single < 20;
 
     /* Cohort reconciliation. The signal side is a subset by construction,
        so only a POSITIVE difference is impossible. */
@@ -356,6 +393,7 @@ quit;
 %let PC_PRR   = .;
 %let PC_A     = .;
 %let PC_RANK  = .;
+%let PC_RANK_PRR = .;
 
 proc sql noprint;
     select count(*) into :PC_FOUND trimmed
@@ -374,11 +412,23 @@ quit;
                 where drug_label = "&DRUG_SEMA"
                   and upcase(strip(prod_ai)) = "&DRUG_SEMA"
                   and upcase(strip(pt))      = 'PANCREATITIS';
-            select prr_rank into :PC_RANK trimmed
+            select signal_rank into :PC_RANK trimmed
                 from work.glp1_ranked
                 where drug_label = "&DRUG_SEMA"
                   and upcase(strip(prod_ai)) = "&DRUG_SEMA"
                   and upcase(strip(pt))      = 'PANCREATITIS';
+
+            /* What the same row would have ranked under the spec's PRR
+               ordering. Written as a subquery rather than a comparison
+               against &PC_PRR so the count cannot be off by one on a
+               floating-point round-trip through the macro variable. */
+            select count(*) + 1 into :PC_RANK_PRR trimmed
+                from work.glp1_ranked
+                where drug_label = "&DRUG_SEMA"
+                  and PRR > (select PRR from work.glp1_ranked
+                             where drug_label = "&DRUG_SEMA"
+                               and upcase(strip(prod_ai)) = "&DRUG_SEMA"
+                               and upcase(strip(pt))      = 'PANCREATITIS');
         quit;
     %end;
 %mend pc_detail;
@@ -413,8 +463,10 @@ data work.qc_signal_profile;
         set work.sig_by_drug end=_eof1;
         metric = '  ' || strip(drug_label) || ' Evans signals';
         value  = n_evans;
-        note   = catx(' ', strip(put(n_pairs, comma12.)), 'pairs across',
-                           strip(put(n_prod_ai, comma12.)), 'prod_ai variants');
+        note   = catx(' ', strip(put(n_evans_single, comma12.)),
+                           'single-ingredient, from',
+                           strip(put(n_pairs, comma12.)), 'pairs /',
+                           strip(put(n_prod_ai, comma12.)), 'prod_ai');
         output;
     end;
 
@@ -444,13 +496,13 @@ data work.qc_signal_profile;
     value  = &N_COMBO_PAIRS;
     note   = 'single_ingredient=0 - compounded or combination products';  output;
 
-    metric = 'Evans signals on a combination prod_ai';
+    metric = 'Evans signals excluded as a combination';
     value  = &N_COMBO_EVANS;
-    note   = 'Small denominators - see the GRAIN note in the header';     output;
+    note   = 'Kept in GLP1_SIGNALS, held out of the top table';           output;
 
     metric = 'Top-20 slots held by a combination';
     value  = &N_COMBO_TOP;
-    note   = 'Filter on single_ingredient=1 if these crowd out real ones'; output;
+    note   = 'Must be 0 - the single_ingredient filter guarantees it';    output;
 
     metric = 'Rows in the top-signals table';
     value  = &N_TOP;
@@ -460,9 +512,13 @@ data work.qc_signal_profile;
     value  = &PC_PRR;
     note   = 'Gate 2 positive control - expected 6.18 on 456 cases';      output;
 
-    metric = 'SEMAGLUTIDE x Pancreatitis rank';
+    metric = 'SEMAGLUTIDE x Pancreatitis rank (EBGM)';
     value  = &PC_RANK;
-    note   = 'Position within SEMAGLUTIDE by PRR - >20 means not in top'; output;
+    note   = 'Position within SEMAGLUTIDE - <=20 means it makes the table'; output;
+
+    metric = 'SEMAGLUTIDE x Pancreatitis rank (PRR)';
+    value  = &PC_RANK_PRR;
+    note   = 'What the spec ordering gave - see RANKING in the header';   output;
 
     stop;
     label metric = 'Metric' value = 'Value' note = 'Note';
@@ -476,9 +532,14 @@ run;
     /* The gate. */
     %if &PC_FOUND > 0 %then %do;
         %put NOTE: Validation check - SEMAGLUTIDE x Pancreatitis confirmed in GLP-1 signal profile.;
-        %put NOTE-       PRR = &PC_PRR on a = &PC_A cases, rank &PC_RANK within SEMAGLUTIDE.;
-        %if %sysevalf(&PC_RANK > 20) %then
-            %put NOTE-       Rank is outside the top 20, so it will not appear in glp1_top_signals.csv.;
+        %put NOTE-       PRR = &PC_PRR on a = &PC_A cases.;
+        %put NOTE-       Rank within SEMAGLUTIDE: &PC_RANK by EBGM, &PC_RANK_PRR by PRR.;
+        %if %sysevalf(&PC_RANK > 20) %then %do;
+            %put WARNING: The GLP-1 positive control is outside the top 20 even under EBGM.;
+            %put WARNING- glp1_top_signals.csv will not contain the class effect the report is about.;
+        %end;
+        %else
+            %put NOTE-       Inside the top 20 - it appears in glp1_top_signals.csv.;
     %end;
     %else %do;
         %put WARNING: SEMAGLUTIDE x Pancreatitis NOT found - check signal filtering logic.;
@@ -502,21 +563,21 @@ run;
         title2;
     %end;
 
-    /* The ranking hazard. */
+    /* Assertion, not a warning: section 3 filters on single_ingredient = 1,
+       so a non-zero count here means that filter did not do what it says. */
     %if &N_COMBO_TOP > 0 %then %do;
-        %put WARNING: &N_COMBO_TOP of &N_TOP top-20 rows rest on a combination prod_ai.;
-        %put WARNING- These carry small denominators and can outrank real class effects.;
-        %put WARNING- Add "where single_ingredient = 1" downstream if they are not wanted.;
+        %put ERROR: &N_COMBO_TOP of &N_TOP top-20 rows rest on a combination prod_ai.;
+        %put ERROR- Section 3 filters on single_ingredient = 1, so this must be 0.;
 
         proc print data=work.glp1_top_signals noobs label;
             where single_ingredient = 0;
-            var drug_label prod_ai pt prr_rank a n_drug PRR;
-            format a n_drug comma12. PRR 10.2;
-            title2 'Top-20 rows resting on a combination product';
+            var drug_label prod_ai pt signal_rank a n_drug EBGM PRR;
+            format a n_drug comma12. EBGM PRR 10.2;
+            title2 'ERROR - top-20 rows resting on a combination product';
         run;
         title2;
     %end;
-    %else %put NOTE: No top-20 row rests on a combination prod_ai.;
+    %else %put NOTE: Combination assertion passed - &N_COMBO_EVANS Evans signal(s) held out of the top table.;
 
     %if &N_SHORT > 0 %then
         %put NOTE: &N_SHORT molecule(s) have fewer than 20 Evans signals - their block is short by design.;
@@ -527,12 +588,14 @@ run;
 
 title2 'Table 1: Signals by Molecule';
 proc print data=work.sig_by_drug noobs label;
-    var drug_label generation n_prod_ai n_pairs n_evans n_ror n_ebgm n_all3;
-    format n_pairs n_evans n_ror n_ebgm n_all3 comma12.;
-    label drug_label = 'Molecule'      generation = 'Generation'
-          n_prod_ai  = 'prod_ai'       n_pairs    = 'Pairs'
-          n_evans    = 'Evans'         n_ror      = 'ROR'
-          n_ebgm     = 'EBGM'          n_all3     = 'All three';
+    var drug_label generation n_prod_ai n_pairs n_evans n_evans_single
+        n_ror n_ebgm n_all3;
+    format n_pairs n_evans n_evans_single n_ror n_ebgm n_all3 comma12.;
+    label drug_label     = 'Molecule'   generation = 'Generation'
+          n_prod_ai      = 'prod_ai'    n_pairs    = 'Pairs'
+          n_evans        = 'Evans'      n_evans_single = 'Evans (single ai)'
+          n_ror          = 'ROR'        n_ebgm     = 'EBGM'
+          n_all3         = 'All three';
 run;
 
 title2 'Table 2: Step 1 Cohort Reconciliation';
@@ -549,14 +612,14 @@ proc print data=work.qc_signal_profile noobs label;
     format value comma12.2;
 run;
 
-title2 'Table 4: Top 10 Evans Signals per Molecule';
+title2 'Table 4: Top 10 Evans Signals per Molecule (ranked by EBGM)';
 proc print data=work.glp1_top_signals noobs label;
-    where prr_rank <= 10;
-    var drug_label pt prr_rank a n_drug PRR PRR_LCL EBGM EB05 single_ingredient;
-    format a n_drug comma12. PRR PRR_LCL EBGM EB05 10.2;
-    label drug_label = 'Molecule'  pt       = 'Reaction (PT)'
-          prr_rank   = 'Rank'      a        = 'Cases'
-          n_drug     = 'Drug N'    single_ingredient = 'Single ingredient';
+    where signal_rank <= 10;
+    var drug_label pt signal_rank a n_drug EBGM EB05 PRR PRR_LCL;
+    format a n_drug comma12. EBGM EB05 PRR PRR_LCL 10.2;
+    label drug_label  = 'Molecule'  pt     = 'Reaction (PT)'
+          signal_rank = 'Rank'      a      = 'Cases'
+          n_drug      = 'Drug N';
 run;
 title2;
 
@@ -604,8 +667,9 @@ run;
     %put NOTE: Evaluable PRR        = &N_EVALUABLE;
     %put NOTE: Evans / ROR / EBGM   = &N_EVANS / &N_ROR / &N_EBGM;
     %put NOTE: All three criteria   = &N_ALL3;
-    %put NOTE: Combination pairs    = &N_COMBO_PAIRS (Evans: &N_COMBO_EVANS, in top 20: &N_COMBO_TOP);
-    %put NOTE: Top-signals rows     = &N_TOP;
+    %put NOTE: Combination pairs    = &N_COMBO_PAIRS (Evans: &N_COMBO_EVANS, all held out of the top table);
+    %put NOTE: Top-signals rows     = &N_TOP (single-ingredient Evans, ranked by EBGM);
+    %put NOTE: Positive control     = rank &PC_RANK by EBGM, &PC_RANK_PRR by PRR;
     %put NOTE: Dataset              = SIGNAL.GLP1_SIGNALS;
     %put NOTE: Tables               = &OUT_TABLES./glp1_signals.csv;
     %put NOTE:                        &OUT_TABLES./glp1_top_signals.csv;
