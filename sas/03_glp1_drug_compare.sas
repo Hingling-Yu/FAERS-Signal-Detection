@@ -120,9 +120,14 @@ title "Phase 3 Step 3 - GLP-1 Drug Comparison (3 layers, 2 grains)";
     %local i tbl missing;
     %let missing = 0;
 
+    /* The third %SCAN argument is not optional here. Its default delimiter
+       list includes the PERIOD, so scanning a list of two-level names splits
+       CLEAN.GLP1_CASES into CLEAN and GLP1_CASES and reports two missing
+       tables that were never asked for. 03_glp1_extract.sas scans bare
+       member names and prepends the libref, which is why it never hit this. */
     %do i = 1 %to 6;
         %let tbl = %scan(clean.glp1_cases clean.glp1_reac clean.drug clean.reac
-                         work.ref_glp1_drug work.ref_pt_group, &i);
+                         work.ref_glp1_drug work.ref_pt_group, &i, %str( ));
         %if %sysfunc(exist(&tbl)) = 0 %then %do;
             %put ERROR: &tbl does not exist.;
             %let missing = %eval(&missing + 1);
