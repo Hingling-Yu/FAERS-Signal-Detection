@@ -35,9 +35,28 @@
 -- schema means a mistyped DELETE cannot reach the mysql system tables, and it
 -- is the credential that gets handed to Tableau.
 --
--- BEFORE RUNNING: replace the placeholder password below. Do not commit a
--- real password - .gitignore already excludes *.env, so keep the working
--- value in a local .env file and out of this script.
+-- CREDENTIALS
+-- ---------------------------------------------------------------------------
+-- The two IDENTIFIED BY values below are placeholders and are meant to stay
+-- that way. Substitute a real password when you run this file, and keep the
+-- working value out of the repository:
+--
+--   1. Run this script with the placeholder replaced in your editor buffer,
+--      or pipe it through sed - do not save the substitution back to disk.
+--   2. Put the working credential in ~/.my.cnf, outside the repo, mode 600:
+--
+--          [client]
+--          user=faers_ro
+--          password=<the password you chose>
+--          database=faers
+--
+--      Every later mysql invocation then needs no -u, -p or database
+--      argument. Add -u faers_app for write access, or --no-defaults -u root
+--      -p when the cnf should be ignored entirely.
+--
+-- A password committed here is published, not stored: this repository is
+-- public, so the only remedy after the fact is rotating the password on the
+-- server. Scrubbing the file afterwards does not unpublish it.
 -- ===========================================================================
 
 CREATE DATABASE IF NOT EXISTS faers
