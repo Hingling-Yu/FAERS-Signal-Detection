@@ -418,10 +418,15 @@ quit;
                   and upcase(strip(prod_ai)) = "&DRUG_SEMA"
                   and upcase(strip(pt))      = 'PANCREATITIS';
 
-            /* What the same row would have ranked under the spec's PRR
-               ordering. Written as a subquery rather than a comparison
-               against &PC_PRR so the count cannot be off by one on a
-               floating-point round-trip through the macro variable. */
+            /* The same row's rank under PRR ordering, over the SAME set -
+               single-ingredient Evans signals. It is therefore not the 129
+               of the first run, which ranked over all 811 Evans signals
+               including combination products; this is the like-for-like
+               contrast, isolating the ordering from the filter.
+
+               A subquery rather than a comparison against the PC_PRR macro
+               variable, so the count cannot be off by one on a
+               floating-point round-trip through a macro variable. */
             select count(*) + 1 into :PC_RANK_PRR trimmed
                 from work.glp1_ranked
                 where drug_label = "&DRUG_SEMA"
@@ -518,7 +523,7 @@ data work.qc_signal_profile;
 
     metric = 'SEMAGLUTIDE x Pancreatitis rank (PRR)';
     value  = &PC_RANK_PRR;
-    note   = 'What the spec ordering gave - see RANKING in the header';   output;
+    note   = 'Same set ordered by PRR - not the 129 of the unfiltered run'; output;
 
     stop;
     label metric = 'Metric' value = 'Value' note = 'Note';
@@ -533,7 +538,8 @@ run;
     %if &PC_FOUND > 0 %then %do;
         %put NOTE: Validation check - SEMAGLUTIDE x Pancreatitis confirmed in GLP-1 signal profile.;
         %put NOTE-       PRR = &PC_PRR on a = &PC_A cases.;
-        %put NOTE-       Rank within SEMAGLUTIDE: &PC_RANK by EBGM, &PC_RANK_PRR by PRR.;
+        %put NOTE-       Rank within SEMAGLUTIDE, single-ingredient Evans signals:;
+        %put NOTE-       &PC_RANK by EBGM, &PC_RANK_PRR by PRR - same set, ordering alone.;
         %if %sysevalf(&PC_RANK > 20) %then %do;
             %put WARNING: The GLP-1 positive control is outside the top 20 even under EBGM.;
             %put WARNING- glp1_top_signals.csv will not contain the class effect the report is about.;
@@ -669,7 +675,7 @@ run;
     %put NOTE: All three criteria   = &N_ALL3;
     %put NOTE: Combination pairs    = &N_COMBO_PAIRS (Evans: &N_COMBO_EVANS, all held out of the top table);
     %put NOTE: Top-signals rows     = &N_TOP (single-ingredient Evans, ranked by EBGM);
-    %put NOTE: Positive control     = rank &PC_RANK by EBGM, &PC_RANK_PRR by PRR;
+    %put NOTE: Positive control     = rank &PC_RANK by EBGM, &PC_RANK_PRR by PRR (single-ingredient set);
     %put NOTE: Dataset              = SIGNAL.GLP1_SIGNALS;
     %put NOTE: Tables               = &OUT_TABLES./glp1_signals.csv;
     %put NOTE:                        &OUT_TABLES./glp1_top_signals.csv;
