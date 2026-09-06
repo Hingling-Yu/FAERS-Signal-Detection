@@ -1,0 +1,58 @@
+#!/bin/bash
+# Block a commit that would publish a credential.
+#
+# This repository is public and has already leaked a working MySQL password
+# once, in sql/01_ddl.sql, in a file whose own comment said not to commit one.
+# A comment is not a control. This hook is.
+#
+# Enabled per clone - hooks are not versioned by git itself - with:
+#     git config core.hooksPath .githooks
+#
+# To commit something this hook misjudges, look at what it flagged first, then
+# bypass deliberately with:  git commit --no-verify
+set -uo pipefail
+
+# What a credential looks like when it is real.
+CRED_RE='(IDENTIFIED[[:space:]]+BY[[:space:]]*'"'"'[^'"'"']+'"'"')'
+CRED_RE="$CRED_RE"'|(-----BEGIN[[:space:]][A-Z ]*PRIVATE KEY-----)'
+CRED_RE="$CRED_RE"'|((password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"']{6,}["'"'"'])'
+CRED_RE="$CRED_RE"'|(AKIA[0-9A-Z]{16})'
+
+# What a credential looks like when it is a placeholder, and therefore fine.
+SAFE_RE='__|\$\{|\$\(|<[A-Za-z0-9_ .-]+>|PLACEHOLDER|placeholder|CHANGEME|changeme|xxxx|XXXX|YOUR_|your_|EXAMPLE|example|REDACTED|\*\*\*'
+
+FOUND=0
+while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    # Read the staged blob, not the working file: those can differ.
+    HITS=$(git show ":$f" 2>/dev/null | grep -InE "$CRED_RE" 2>/dev/null | grep -vE "$SAFE_RE" 2>/dev/null) || true
+    if [ -n "$HITS" ]; then
+        if [ "$FOUND" -eq 0 ]; then
+            echo "COMMIT BLOCKED - a staged file looks like it carries a real credential." >&2
+            echo >&2
+            FOUND=1
+        fi
+        while IFS= read -r line; do
+            echo "  ${f}:${line}" >&2
+        done <<< "$HITS"
+    fi
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+if [ "$FOUND" -eq 1 ]; then
+    cat >&2 <<'MSG'
+
+Replace the value with a placeholder and keep the working credential outside
+the repository - ~/.my.cnf, mode 600, is where this project's MySQL password
+lives. See the CREDENTIALS block at the top of sql/01_ddl.sql.
+
+A password committed to a public repository is published, not stored.
+Removing it in a later commit does not unpublish it: the value stays readable
+in the earlier commit forever unless the history is rewritten. Rotating the
+password on the server is the only real remedy after the fact.
+
+If this is genuinely a placeholder the hook misread, commit with --no-verify.
+MSG
+    exit 1
+fi
+
+exit 0
