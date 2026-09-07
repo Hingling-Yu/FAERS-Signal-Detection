@@ -100,6 +100,9 @@ options nosymbolgen nomprint;
    three ways by age they leave cells too thin for a stable PRR. */
 %let SUBGROUP_DRUGS = SEMAGLUTIDE TIRZEPATIDE;
 
+/* An argument containing an unquoted comma is read as a second positional
+   parameter and the call fails with "more positional parameters found than
+   defined". Either avoid the comma or wrap the argument in %str(). */
 %macro _stamp(label);
     %local e;
     %let e = %sysevalf(%sysfunc(datetime()) - &_T0);
@@ -247,7 +250,7 @@ Product administered to patient of inappropriate age
 ;
 run;
 
-%_stamp(Section 2 - universe, PT group map and medication error list built.)
+%_stamp(Section 2 - universe / PT group map / medication error list built.)
 
 
 /*==========================================================================
