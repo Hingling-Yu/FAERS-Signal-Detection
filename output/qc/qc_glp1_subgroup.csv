@@ -1,0 +1,33 @@
+metric,value,note
+SEMAGLUTIDE age coverage,50.597955468,"18,066 of 35,705 cases carry a usable age"
+SEMAGLUTIDE sex coverage,86.043971433,"30,722 cases coded M or F"
+SEMAGLUTIDE US share,85.18134715,Missing reporter_country counts as Non-US
+TIRZEPATIDE age coverage,65.968250346,"46,251 of 70,111 cases carry a usable age"
+TIRZEPATIDE sex coverage,75.916760565,"53,226 cases coded M or F"
+TIRZEPATIDE US share,88.493959578,Missing reporter_country counts as Non-US
+Age coverage gap between molecules,15.37029,Percentage points - the reason for every guardrail below
+Analysis universe N,1529453,"Must equal 1,529,453 - the Step 2 and 3 universe"
+Rows with a missing or negative 2x2 cell,0,Must be 0 across all three dimensions
+Age-stratified rows,4488,"SIGNAL.GLP1_SUBGROUP_AGE, both grains"
+Sex-stratified rows,4204,"SIGNAL.GLP1_SUBGROUP_SEX, both grains"
+Country-stratified rows,4379,"SIGNAL.GLP1_SUBGROUP_COUNTRY, both grains"
+Age Group / SEMAGLUTIDE / GROUP,23,Stratified pairs with a >= 3
+Age Group / SEMAGLUTIDE / PT,2161,Stratified pairs with a >= 3
+Age Group / TIRZEPATIDE / GROUP,23,Stratified pairs with a >= 3
+Age Group / TIRZEPATIDE / PT,2281,Stratified pairs with a >= 3
+Country / SEMAGLUTIDE / GROUP,16,Stratified pairs with a >= 3
+Country / SEMAGLUTIDE / PT,2200,Stratified pairs with a >= 3
+Country / TIRZEPATIDE / GROUP,16,Stratified pairs with a >= 3
+Country / TIRZEPATIDE / PT,2147,Stratified pairs with a >= 3
+Sex / SEMAGLUTIDE / GROUP,16,Stratified pairs with a >= 3
+Sex / SEMAGLUTIDE / PT,2199,Stratified pairs with a >= 3
+Sex / TIRZEPATIDE / GROUP,16,Stratified pairs with a >= 3
+Sex / TIRZEPATIDE / PT,1973,Stratified pairs with a >= 3
+Age-dependent signals (all),424,Elderly/Youth concentrated or elevated
+CLINICAL_AE,421,The deliverable - Table 2
+MEDICATION_ERROR,3,"Off-label use and dosing errors - Table 3, informational"
+at GROUP grain,7,Class effects - never additive with PT rows
+CLINICAL_AE flagged SELECTION BIAS,216,Event age coverage more than 15 points from its baseline
+CLINICAL_AE with coverage OK,205,The defensible subset - read these first
+Elderly-concentrated / Youth-concentrated,367,elderly 195 - youth 172
+Elderly-elevated / Youth-elevated,54,elderly 23 - youth 31
