@@ -18,8 +18,10 @@ ABSENT quarters (0 cases),1425,Grid rows the raw counts would not have produced
 Trend classification - Emerging,293,The star metric - crosses Evans in the second half
 of which Measured (both early quarters evaluable),82,The defensible subset - read these first
 Trend classification - Accelerating,69,Signal in >= 3 quarters and last PRR > 1.3x first
+of which monotonically rising,15,Every evaluable step up - the rest peak or dip on the way
 Trend classification - Stable,39,"Signal in >= 3 quarters, all PRR within 30% of mean"
 Trend classification - Declining,202,Last PRR < 0.7x first - check the Weber annotation
+of which monotonically falling,89,Every evaluable step down - the rest rebound on the way
 Trend classification - Inconsistent,2110,Signal present in some quarters with no clear direction
 Weber-annotated declining signals,153,Early-high PRR on a recently approved drug
 Pairs with <= 2 evaluable quarters,1413,"trend_confidence = Low - labelled, not filtered"
