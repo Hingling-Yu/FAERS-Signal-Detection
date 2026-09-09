@@ -68,6 +68,24 @@
  * validated at Gate 2, which is a change nobody has asked for. Every flag in
  * this program is PRR-based, so nothing here needs it.
  *
+ * -----------------------------------------------------------------------
+ * PT_CATEGORY - CARRIED, NOT FILTERED
+ * -----------------------------------------------------------------------
+ * Every PT-grain row carries pt_category from 00_ref_pt_filter.sas, so a
+ * consumer of the comparison CSVs can drop medication errors, device
+ * complaints and litigation artefacts without re-deriving the rules. This
+ * program does NOT filter on it. The printed tables already restrict to
+ * event_type = 'GROUP', and a group is a curated class effect that is
+ * clinical by construction, so a filter there would change nothing.
+ *
+ * The PT grain is deliberately left whole. A head-to-head is a comparison,
+ * and 'TIRZEPATIDE flags this medication error and SEMAGLUTIDE does not' is
+ * a finding about the two reporting streams that Step 7 may want to make.
+ * Dropping the rows here would take that decision away from it.
+ *
+ * -----------------------------------------------------------------------
+ * WHY EBGM IS NOT HERE (continued)
+ * -----------------------------------------------------------------------
  * Additionally, the delivered EBGM uses an untruncated prior that is mis-fit
  * - fitted prior mean 17.3 against DuMouchel's ~1.04, per the independent
  * review of 2026-09-09. That is a second, independent reason to keep it out
@@ -94,6 +112,7 @@
    it. Every include after this line derives from &SAS_PATH. */
 %include "/home/u64291357/mydata/sas/00_config.sas";
 %include "&SAS_PATH./00_ref_pt_group.sas";
+%include "&SAS_PATH./00_ref_pt_filter.sas";
 %include "&SAS_PATH./macros/calc_prr.sas";
 %include "&SAS_PATH./macros/calc_ror.sas";
 
@@ -338,6 +357,16 @@ quit;
                         ct.cohort,
                         "&event_type" as event_type  length=8,
                         ct.event,
+
+                        /* GROUP rows are the curated class effects of
+                           00_ref_pt_group.sas, so they are clinical by
+                           construction and never sent through the rules.
+                           PT rows are classified like everywhere else. */
+                        case when "&event_type" = 'GROUP' then 'CLINICAL_AE'
+                             else %pt_category(ct.event)
+                        end as pt_category length=25
+                            label='CLINICAL_AE or the non-clinical category',
+
                         ct.a,
                         nd.n_drug - ct.a                            as b,
                         nr.n_reac - ct.a                            as c,
@@ -422,6 +451,8 @@ proc sql;
     create table work.compare_sema_tirz as
         select  coalesce(s.event_type, t.event_type) as event_type length=8,
                 coalesce(s.event, t.event)           as event      length=100,
+                coalesce(s.pt_category, t.pt_category)
+                    as pt_category length=25,
 
                 s.a as sema_a,  s.PRR as sema_PRR,
                 s.PRR_LCL as sema_PRR_LCL, s.PRR_UCL as sema_PRR_UCL,
@@ -481,6 +512,8 @@ proc sql;
     create table work.compare_generation as
         select  coalesce(n.event_type, o.event_type) as event_type length=8,
                 coalesce(n.event, o.event)           as event      length=100,
+                coalesce(n.pt_category, o.pt_category)
+                    as pt_category length=25,
 
                 n.a as newer_a, n.PRR as newer_PRR,
                 n.PRR_LCL as newer_PRR_LCL, n.PRR_UCL as newer_PRR_UCL,
@@ -539,6 +572,10 @@ proc sql;
     create table work.compare_overview as
         select      event_type,
                     event,
+                    /* Constant within the GROUP BY - one event has one
+                       classification - so MAX carries it rather than
+                       aggregating anything. */
+                    max(pt_category) as pt_category length=25,
                     max(case when cohort = "&DRUG_SEMA" then a   end) as sema_a,
                     max(case when cohort = "&DRUG_SEMA" then PRR end) as sema_PRR,
                     max(case when cohort = "&DRUG_TIRZ" then a   end) as tirz_a,
@@ -849,22 +886,22 @@ title2;
    free on a table small enough to fit in one page. */
 data signal.glp1_base_signals (compress=yes
         label='GLP-1 2x2 rebuilt from cases - 4 grains, PT and class-effect group');
-    length cohort_type $12 cohort $20 event_type $8 event $100;
+    length cohort_type $12 cohort $20 event_type $8 event $100 pt_category $25;
     set work.base_all;
 run;
 
 data signal.glp1_compare_sema_tirz (label='Layer 1 - SEMAGLUTIDE vs TIRZEPATIDE');
-    length event_type $8 event $100;
+    length event_type $8 event $100 pt_category $25;
     set work.compare_sema_tirz;
 run;
 
 data signal.glp1_compare_generation (label='Layer 2 - newer vs older GLP-1 generation');
-    length event_type $8 event $100;
+    length event_type $8 event $100 pt_category $25;
     set work.compare_generation;
 run;
 
 data signal.glp1_compare_overview (label='Layer 3 - four-molecule overview');
-    length event_type $8 event $100;
+    length event_type $8 event $100 pt_category $25;
     set work.compare_overview;
 run;
 
