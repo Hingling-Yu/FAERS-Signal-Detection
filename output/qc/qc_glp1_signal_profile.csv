@@ -18,7 +18,10 @@ TIRZEPATIDE cases in 2x2,70111,"Step 1 cohort 70,111 - difference 0.00 %"
 Pairs on a combination prod_ai,694,single_ingredient=0 - compounded or combination products
 Evans signals excluded as a combination,44,"Kept in GLP1_SIGNALS, held out of the top table"
 Top-20 slots held by a combination,0,Must be 0 - the single_ingredient filter guarantees it
+Evans signals filtered as non-clinical,96,MED_ERROR DEVICE PRODUCT_QUALITY DOSING_ERROR PROCEDURE LITIGATION LOE
+Clinical Evans signals (top-table population),671,"pt_category=CLINICAL_AE, single ingredient, Evans"
+Top-20 slots held by a non-clinical PT,0,Must be 0 - the pt_category filter guarantees it
 Rows in the top-signals table,80,"Up to 20 per molecule, fewer where signals are scarce"
 SEMAGLUTIDE x Pancreatitis PRR,6.1774,Gate 2 positive control - expected 6.18 on 456 cases
-SEMAGLUTIDE x Pancreatitis rank (PRR),125,Delivered ordering - <=20 means it makes the table
-SEMAGLUTIDE x Pancreatitis rank (EBGM),92,"Retired ordering, same set - contrast only, EBGM is mis-fit"
+SEMAGLUTIDE x Pancreatitis rank (PRR),105,Delivered ordering - <=20 means it makes the table
+SEMAGLUTIDE x Pancreatitis rank (EBGM),76,"Retired ordering, same set - contrast only, EBGM is mis-fit"

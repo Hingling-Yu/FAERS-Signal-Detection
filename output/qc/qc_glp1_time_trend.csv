@@ -17,6 +17,8 @@ Rows with a missing or negative 2x2 cell,0,Must be 0
 ABSENT quarters (0 cases),1425,Grid rows the raw counts would not have produced
 Trend classification - Emerging,293,The star metric - crosses Evans in the second half
 of which Measured (both early quarters evaluable),82,The defensible subset - read these first
+Emerging or accelerating - non-clinical PT,41,"Kept in glp1_emerging.csv, held out of Tables 1 and 2"
+Emerging or accelerating - clinical AE,321,pt_category=CLINICAL_AE - the population the tables display
 Trend classification - Accelerating,69,Signal in >= 3 quarters and last PRR > 1.3x first
 of which monotonically rising,15,Every evaluable step up - the rest peak or dip on the way
 Trend classification - Stable,39,"Signal in >= 3 quarters, all PRR within 30% of mean"
