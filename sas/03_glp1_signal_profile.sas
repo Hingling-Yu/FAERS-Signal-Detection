@@ -114,6 +114,7 @@
    &BASE is defined BY this file, so it cannot be used to find it. Every
    path after this line derives from &BASE. */
 %include "/home/u64291357/mydata/sas/00_config.sas";
+%include "&SAS_PATH./00_ref_pt_filter.sas";
 
 /* 00_config.sas turns MPRINT and SYMBOLGEN on. This program is a report;
    the macro trace would bury the tables it exists to print. */
@@ -201,6 +202,8 @@ proc sql;
                 (upcase(strip(s.prod_ai)) = upcase(strip(g.drug_label)))
                     as single_ingredient length=8
                     label='prod_ai is the molecule alone (1) or a combination (0)',
+                %pt_category(s.pt) as pt_category length=25
+                    label='CLINICAL_AE or the non-clinical category it fell in',
                 s.*
         from    signal.all_signals  as s,
                 work.ref_glp1_drug  as g
@@ -221,13 +224,25 @@ quit;
   in a HAVING clause makes PROC SQL remerge - so the sketch can silently
   return the wrong 20 rows. A sorted BY group cannot.
 
-  Two filters, both departures from the spec and both argued in the header:
+  Three filters, all departures from the spec and all argued in the header:
 
     signal_flag = 1       Evans is the project's primary criterion and the
                           only one of the three carrying the a >= 3 floor.
 
     single_ingredient = 1 the molecule alone. See GRAIN - the alternative
                           gave 13 of 80 slots to compounded products.
+
+    pt_category =         a genuine adverse event. Medication errors, device
+      'CLINICAL_AE'       complaints, product quality reports, dosing
+                          mistakes, surgical history and litigation-intake
+                          artefacts are classified by keyword rules in
+                          00_ref_pt_filter.sas and held out of this table.
+                          Without it the top 20 opened on 'Intercepted
+                          product selection error' at PRR 606 and
+                          'Corrective lens user' at PRR 105. Every row stays
+                          in GLP1_SIGNALS and in glp1_signals.csv, carrying
+                          pt_category, so the errors remain one WHERE clause
+                          away for anyone who wants them.
 
   Ordered by PRR rather than EBGM. See RANKING for why, and note that
   SIGNAL.GLP1_SIGNALS keeps every row and every measure regardless: this
@@ -239,7 +254,8 @@ quit;
   ==========================================================================*/
 proc sort data=work.glp1_signals out=work.glp1_ranked_in;
     by drug_label descending PRR descending a pt;
-    where signal_flag = 1 and single_ingredient = 1;
+    where signal_flag = 1 and single_ingredient = 1
+      and pt_category = 'CLINICAL_AE';
 run;
 
 data work.glp1_ranked;
@@ -259,7 +275,8 @@ data work.glp1_top_signals;
     /* RETAIN before SET, which is what actually fixes the column order:
        variable position is set at compile time by first appearance, so the
        same list written after the SET would be a no-op. */
-    retain drug_label generation prod_ai pt single_ingredient signal_rank
+    retain drug_label generation prod_ai pt single_ingredient pt_category
+           signal_rank
            a n_drug n_reac
            EBGM EB05 EB95
            PRR PRR_LCL PRR_UCL PRR_CHI2
@@ -269,7 +286,8 @@ data work.glp1_top_signals;
     set work.glp1_ranked;
     where signal_rank <= 20;
 
-    keep drug_label generation prod_ai pt single_ingredient signal_rank
+    keep drug_label generation prod_ai pt single_ingredient pt_category
+         signal_rank
          a n_drug n_reac
          EBGM EB05 EB95
          PRR PRR_LCL PRR_UCL PRR_CHI2
@@ -287,10 +305,11 @@ quit;
 /*==========================================================================
   4. QC REPORT
   --------------------------------------------------------------------------
-  Three questions this section has to answer:
+  Four questions this section has to answer:
     1. Did the filter select the class the Step 1 cohort selected?
     2. How much of the signal set rests on compounded prod_ai variants?
-    3. Does the engine still recover SEMAGLUTIDE x Pancreatitis?
+    3. How much of it is not a clinical adverse event at all?
+    4. Does the engine still recover SEMAGLUTIDE x Pancreatitis?
 
   Question 3 is the gate. It is the GLP-1 positive control from Gate 2
   (PRR 6.18, a = 456) and the only pair in this program whose answer is
@@ -309,6 +328,7 @@ proc sql;
                     coalesce(s.n_prod_ai,    0) as n_prod_ai,
                     coalesce(s.n_evans,      0) as n_evans,
                     coalesce(s.n_evans_single, 0) as n_evans_single,
+                    coalesce(s.n_evans_clinical, 0) as n_evans_clinical,
                     coalesce(s.n_ror,        0) as n_ror,
                     coalesce(s.n_ebgm,       0) as n_ebgm,
                     coalesce(s.n_all3,       0) as n_all3
@@ -320,6 +340,10 @@ proc sql;
                             sum(case when signal_flag = 1
                                           and single_ingredient = 1
                                      then 1 else 0 end) as n_evans_single,
+                            sum(case when signal_flag = 1
+                                          and single_ingredient = 1
+                                          and pt_category = 'CLINICAL_AE'
+                                     then 1 else 0 end) as n_evans_clinical,
                             sum(signal_ror)         as n_ror,
                             sum(signal_ebgm)        as n_ebgm,
                             sum(case when signal_flag = 1 and signal_ror = 1
@@ -382,7 +406,22 @@ proc sql noprint;
        block is short, which is a property of the data and not a bug. Counted
        on the same set the top-20 is drawn from, not on all Evans signals. */
     select count(*) into :N_SHORT trimmed
-        from work.sig_by_drug where n_evans_single < 20;
+        from work.sig_by_drug where n_evans_clinical < 20;
+
+    /* Non-clinical PT filter (2026-09-09). Both counts are taken on the
+       Evans + single-ingredient set, which is the population the top table
+       is drawn from - counting over all pairs would answer a question
+       nobody asked. */
+    select count(*) into :N_NOISE_EVANS trimmed
+        from work.glp1_signals
+        where signal_flag = 1 and single_ingredient = 1
+          and pt_category ne 'CLINICAL_AE';
+    select count(*) into :N_CLINICAL_EVANS trimmed
+        from work.glp1_signals
+        where signal_flag = 1 and single_ingredient = 1
+          and pt_category = 'CLINICAL_AE';
+    select count(*) into :N_NOISE_TOP trimmed
+        from work.glp1_top_signals where pt_category ne 'CLINICAL_AE';
 
     /* Cohort reconciliation. The signal side is a subset by construction,
        so only a POSITIVE difference is impossible. */
@@ -511,6 +550,18 @@ data work.qc_signal_profile;
     value  = &N_COMBO_TOP;
     note   = 'Must be 0 - the single_ingredient filter guarantees it';    output;
 
+    metric = 'Evans signals filtered as non-clinical';
+    value  = &N_NOISE_EVANS;
+    note   = 'MED_ERROR DEVICE PRODUCT_QUALITY DOSING_ERROR PROCEDURE LITIGATION LOE'; output;
+
+    metric = 'Clinical Evans signals (top-table population)';
+    value  = &N_CLINICAL_EVANS;
+    note   = 'pt_category=CLINICAL_AE, single ingredient, Evans';         output;
+
+    metric = 'Top-20 slots held by a non-clinical PT';
+    value  = &N_NOISE_TOP;
+    note   = 'Must be 0 - the pt_category filter guarantees it';          output;
+
     metric = 'Rows in the top-signals table';
     value  = &N_TOP;
     note   = 'Up to 20 per molecule, fewer where signals are scarce';     output;
@@ -588,7 +639,18 @@ run;
     %else %put NOTE: Combination assertion passed - &N_COMBO_EVANS Evans signal(s) held out of the top table.;
 
     %if &N_SHORT > 0 %then
-        %put NOTE: &N_SHORT molecule(s) have fewer than 20 Evans signals - their block is short by design.;
+        %put NOTE: &N_SHORT molecule(s) have fewer than 20 clinical Evans signals - their block is short by design.;
+
+    /* Assertion, not a note: section 3 filters on pt_category, so a
+       non-clinical PT in the top table means the filter did not apply. */
+    %if &N_NOISE_TOP > 0 %then %do;
+        %put ERROR: &N_NOISE_TOP of &N_TOP top-20 rows hold a non-clinical PT.;
+        %put ERROR- Section 3 filters on pt_category = CLINICAL_AE, so this must be 0.;
+    %end;
+    %else %do;
+        %put NOTE: Non-clinical PT filter: &N_NOISE_EVANS Evans signal(s) held out of the top table.;
+        %put NOTE-       &N_CLINICAL_EVANS clinical Evans signal(s) remain as the top-table population.;
+    %end;
 
 %mend profile_verdict;
 
@@ -597,11 +659,12 @@ run;
 title2 'Table 1: Signals by Molecule';
 proc print data=work.sig_by_drug noobs label;
     var drug_label generation n_prod_ai n_pairs n_evans n_evans_single
-        n_ror n_ebgm n_all3;
-    format n_pairs n_evans n_evans_single n_ror n_ebgm n_all3 comma12.;
+        n_evans_clinical n_ror n_ebgm n_all3;
+    format n_pairs n_evans n_evans_single n_evans_clinical n_ror n_ebgm n_all3 comma12.;
     label drug_label     = 'Molecule'   generation = 'Generation'
           n_prod_ai      = 'prod_ai'    n_pairs    = 'Pairs'
           n_evans        = 'Evans'      n_evans_single = 'Evans (single ai)'
+          n_evans_clinical = 'Evans (single ai, clinical)'
           n_ror          = 'ROR'        n_ebgm     = 'EBGM'
           n_all3         = 'All three';
 run;
@@ -649,7 +712,7 @@ title2;
 data signal.glp1_signals (compress=yes
         label='GLP-1 disproportionality signals, one row per prod_ai x PT');
     length drug_label $20 generation $12 prod_ai $500 pt $100
-           single_ingredient 8;
+           single_ingredient 8 pt_category $25;
     set work.glp1_signals;
 run;
 
