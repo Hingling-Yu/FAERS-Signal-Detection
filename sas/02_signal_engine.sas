@@ -5,7 +5,8 @@
  *           contingency table for every Primary Suspect drug in the cleaned
  *           FAERS database, computes PRR and ROR with 95% CIs and the
  *           empirical Bayes EBGM with its 90% credible interval, and applies
- *           the Evans, ROR and MGPS signal criteria.
+ *           the Evans and ROR signal criteria. EBGM is retained for
+ *           ranking reference only - the untruncated prior is mis-fit.
  *
  * Inputs:   CLEAN.DRUG   role_cod, prod_ai   (produced by 01_import_clean.sas)
  *           CLEAN.REAC   pt
@@ -14,7 +15,7 @@
  *           &OUT_TABLES/all_signals_flagged.csv   Evans-flagged subset
  *           &OUT_TABLES/signals_ebgm.csv          EBGM-flagged subset
  *           &OUT_QC/qc_signal_engine.csv          run audit
- *           &OUT_QC/qc_ebgm_model.csv             fitted MGPS prior
+ *           &OUT_QC/qc_ebgm_model.csv             fitted EB prior
  *
  * Scope:    FULL database. No drug-class filter is applied here - the GLP-1
  *           cohort is carved out of SIGNAL.ALL_SIGNALS downstream, so the
@@ -358,6 +359,12 @@ quit;
 
 %_stamp(ROR computed.)
 
+/* NOTE (2026-09-09): the EBGM delivered here uses the UNTRUNCATED prior
+   (TRUNCATE=0, the macro default). Independent review found the fitted
+   prior mean = 17.3 against DuMouchel's ~1.04, which is what causes 41.8%
+   of the EB05 >= 2 flags to rest on a < 3. EBGM is retained as a ranking
+   and shrinkage aid; it is NOT to be cited as the "FDA MGPS criterion".
+   A zero-truncated refit plus openEBGM validation is on the roadmap. */
 %calc_ebgm(ds_in=work.with_prr_ror, ds_out=work.with_all_measures,
            total_n=TOTAL_N);
 
@@ -387,16 +394,18 @@ quit;
     than assumed, and the CSV export is restricted to the Evans set, which
     carries the case-count floor.
 
-  signal_ebgm - the FDA / MGPS criterion: EB05 >= 2, i.e. the 5th percentile
-    of the posterior still sits at twice the expected count.
+  signal_ebgm - empirical Bayes shrinkage flag: EB05 >= 2, i.e. the 5th
+    percentile of the posterior still sits at twice the expected count.
+    The fit is untruncated (prior mean 17.3), so this is NOT equivalent to
+    the FDA MGPS criterion and is retained for ranking only.
 
     It carries no minimum case count. Whether it NEEDS one is the question
     QC_EBGM_THIN below exists to answer, and the answer is not assumed here.
-    On the first full run - fitted with an untruncated likelihood - 42% of
+    On the delivered run - fitted with an untruncated likelihood - 41.8% of
     EBGM signals sat below a = 3, which refuted the claim that shrinkage
-    replaces the floor. That fit has since been corrected (see the ZERO
-    TRUNCATION note in the section 7 header). Read the metric, not this
-    comment, for what the current fit does.
+    replaces the floor. That fit has NOT been corrected: TRUNCATE still
+    defaults to 0 (see the ZERO TRUNCATION note in the section 7 header and
+    in calc_ebgm.sas). Read the metric, not this comment.
 
     The threshold is written literally rather than pulled from 00_config.sas
     because 2 is not a tuning knob here - it is the published FDA screening
@@ -439,7 +448,7 @@ data work.flagged;
 
     label signal_flag    = 'Evans signal (PRR)'
           signal_ror     = 'ROR signal (LCL > 1)'
-          signal_ebgm    = 'MGPS signal (EB05 >= 2)'
+          signal_ebgm    = 'EB shrinkage flag (untruncated fit, ranking only)'
           evaluable      = 'PRR and ROR both computable'
           ebgm_evaluable = 'EBGM computable';
 run;
@@ -495,10 +504,12 @@ quit;
   appear. The spec's plain Negative Binomial mixture assumes those cells were
   sampled, so fitting it here inflated every parameter.
 
-  %calc_ebgm now conditions on the pair having been reported at all,
-  f(N | N>=1) = f(N) / (1 - f(0)). Expect the numbers below to move: a
-  background component near 1, and a smaller, better-behaved EBGM signal
-  count. The macro header carries the validation against a known prior.
+  %calc_ebgm CAN condition on the pair having been reported at all,
+  f(N | N>=1) = f(N) / (1 - f(0)), but that fit degenerates on this database
+  and TRUNCATE therefore still defaults to 0. The delivered numbers below are
+  the untruncated ones: overall prior mean 17.3 against DuMouchel's ~1.04.
+  DEMOTE DECISION (2026-09-09): report Evans and Evans + ROR counts; read the
+  EBGM column as a ranking aid, never as an MGPS signal count.
   ==========================================================================*/
 proc sql noprint;
     select count(*)                                    into :QC_PAIRS    trimmed
@@ -584,7 +595,7 @@ data work.qc_signal;
 
     metric = 'Signals - EBGM (EB05 >= 2)';
     value  = &QC_EBGM;
-    note   = 'FDA MGPS criterion, no case-count floor applied'; output;
+    note   = 'Untruncated EB fit (prior mean 17.3) - ranking aid only, not a validated MGPS criterion'; output;
 
     metric = "EBGM signals with a < &MIN_CASES";
     value  = &QC_EBGM_THIN;
@@ -592,7 +603,7 @@ data work.qc_signal;
 
     metric = 'Signals - all three criteria';
     value  = &QC_ALL3;
-    note   = 'Evans AND ROR AND EBGM, the most defensible subset'; output;
+    note   = 'Evans AND ROR AND EB05 - EBGM component uses a mis-fit prior; report Evans or Evans + ROR'; output;
 
     metric = 'Analysis universe N (cases)';
     value  = &TOTAL_N;
@@ -618,7 +629,7 @@ proc print data=work.qc_signal noobs label;
     format value comma16.;
 run;
 
-/* The fitted MGPS prior gets its own table rather than extra rows in
+/* The fitted EB prior gets its own table rather than extra rows in
    WORK.QC_SIGNAL. That table's VALUE column is printed with COMMA16., which
    is right for counts in the millions and would round a mixing weight of
    0.63 to 1. Mixing magnitudes in one column costs either the commas or the
@@ -687,14 +698,14 @@ data work.qc_ebgm_model;
     value     = &QC_SHRINK;
     note      = '1 = no shrinkage; lower = prior pulling harder'; output;
 
-    label parameter = 'MGPS model parameter' value = 'Value' note = 'Note';
+    label parameter = 'EB model parameter' value = 'Value' note = 'Note';
 run;
 
 proc export data=work.qc_ebgm_model
             outfile="&OUT_QC./qc_ebgm_model.csv" dbms=csv replace;
 run;
 
-title2 "Phase 2 - fitted MGPS prior (two-component Gamma mixture)";
+title2 "Phase 2 - fitted EB prior (untruncated - ranking aid only, not MGPS)";
 proc print data=work.qc_ebgm_model noobs label;
     format value best12.;
 run;

@@ -206,9 +206,11 @@
 
   Not yet tried, in the order worth trying:
     1. Fit on the full table WITH the zero cells rather than conditioning
-       them away. Mathematically equivalent to truncation and equally
-       correct in simulation, but a different surface for an optimiser to
-       cross. The zero cells never need materialising - bin the drug and PT
+       them away. CORRECTION (2026-09-09): calling this "mathematically
+       equivalent to truncation" is wrong. The full-table likelihood is
+       DuMouchel's actual estimator; the truncated conditional is a
+       different objective that happens to agree in simulation. Fitting the
+       full table is therefore the fix, not a reformulation of it. The zero cells never need materialising - bin the drug and PT
        marginals, and the cross product gives the count of cells per E bin.
     2. Bound alpha away from 0 (say alpha >= 0.05), closing the degenerate
        corner. A shape that small is not a background in any useful sense.
