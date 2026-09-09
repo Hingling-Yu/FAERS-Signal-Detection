@@ -30,15 +30,20 @@
  *           so every pair is shrunk toward the overall distribution by an
  *           amount that depends on how much evidence that pair actually
  *           carries. Large-count pairs barely move; single-case pairs
- *           collapse toward the fitted background. This is the method FDA's
- *           own FAERS screening runs, which is why EB05 >= 2 is the
- *           criterion a regulator recognises.
+ *           collapse toward the fitted background. MGPS is the family of
+ *           method FDA's own FAERS screening uses, but see the note below:
+ *           this macro's delivered fit is NOT a validated MGPS criterion.
  *
- * Note:    the likelihood is ZERO-TRUNCATED, which is a deliberate
- *           departure from the formula in docs/spec_ebgm.md. Callers pass
- *           only pairs that were observed, so the plain mixture in the spec
- *           is the wrong likelihood for the data and biases the fit upward.
- *           See ZERO TRUNCATION in the macro docstring for the measurements.
+ * Note:    TRUNCATE defaults to 0, so the delivered fit uses the plain
+ *           (UNTRUNCATED) mixture of docs/spec_ebgm.md, not a zero-truncated
+ *           likelihood. Callers pass only pairs that were observed, so the
+ *           plain mixture is the wrong likelihood for the data and biases the
+ *           fit upward - the independent review of 2026-09-09 measured the
+ *           fitted prior mean at 17.3 against DuMouchel's ~1.04. EBGM output
+ *           is therefore a ranking aid only; EB05 >= 2 must not be cited as
+ *           the FDA MGPS criterion or reported as a standalone signal count.
+ *           See ZERO TRUNCATION in the macro docstring for why TRUNCATE=1
+ *           was not adopted and for the measurements.
  *
  * Requires: SAS/IML (licensed on SAS OnDemand for Academics). Beyond that
  *           the macro is free of libname / path dependencies, so it can be
