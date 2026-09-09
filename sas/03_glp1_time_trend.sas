@@ -134,6 +134,7 @@
 /* Literal path: &BASE is defined BY this file, so it cannot be used to find
    it. Every path after this line derives from &BASE or &SAS_PATH. */
 %include "/home/u64291357/mydata/sas/00_config.sas";
+%include "&SAS_PATH./00_ref_pt_filter.sas";
 %include "&SAS_PATH./macros/calc_prr.sas";
 
 /* 00_config.sas turns MPRINT and SYMBOLGEN on. The joins below are plain
@@ -433,6 +434,8 @@ proc sql;
         select      g.drug_label,
                     g.generation,
                     g.pt,
+                    %pt_category(g.pt) as pt_category length=25
+                        label='CLINICAL_AE or the non-clinical category',
                     g.year_qtr,
                     g.qtr_order,
                     g.a,
@@ -530,6 +533,11 @@ proc sql;
     create table work.trend_wide as
         select      drug_label, generation, pt,
 
+                    /* Constant within the GROUP BY - one PT has one
+                       classification - so MAX carries it rather than
+                       aggregating anything. */
+                    max(pt_category) as pt_category length=25,
+
                     /* Case counts - raw, including the quarters no PRR was
                        computed for. */
                     sum(case when qtr_order=1 then a else 0 end) as a_q1,
@@ -577,7 +585,7 @@ data work.trend_summary;
     set work.trend_wide;
 
     length trend $15 trend_confidence $6 emerging_basis $8
-           weber_note $110 coverage_note $200;
+           weber_note $110 coverage_note $200 pt_category $25;
     length monotonic 8;
 
     array _prr[4] prr_q1 prr_q2 prr_q3 prr_q4;
@@ -795,10 +803,24 @@ proc sql noprint;
         from work.emerging where trend = 'Emerging' and emerging_basis = 'Measured';
     select count(*) into :N_ACCEL trimmed
         from work.emerging where trend = 'Accelerating';
+    /* The two display counts carry the clinical filter the tables below
+       apply. Counting unfiltered here would let a table print its header
+       over zero rows, which is the one thing the guard exists to stop. */
     select count(*) into :N_EM_HIGHMED trimmed
-        from work.emerging where trend_confidence in ('High', 'Medium');
+        from work.emerging
+        where trend_confidence in ('High', 'Medium')
+          and pt_category = 'CLINICAL_AE';
     select count(*) into :N_EM_LOW trimmed
-        from work.emerging where trend_confidence = 'Low';
+        from work.emerging
+        where trend_confidence = 'Low' and pt_category = 'CLINICAL_AE';
+
+    /* Non-clinical PT filter (2026-09-09). Both counts are on the emerging
+       and accelerating set - the headline population, not the whole trend
+       table - because that is what the display tables draw from. */
+    select count(*) into :N_NOISE_EMERGING trimmed
+        from work.emerging where pt_category ne 'CLINICAL_AE';
+    select count(*) into :N_CLINICAL_EMERGING trimmed
+        from work.emerging where pt_category = 'CLINICAL_AE';
 quit;
 
 /* PROC REPORT and PROC PRINT both abort on a zero-observation input, and a
@@ -813,8 +835,9 @@ quit;
 %else %do;
 
 title3 "Table 1: Emerging and accelerating GLP-1 signals, 2025Q3 - 2026Q2";
-title4 "Sorted by evaluable quarters then velocity - the fully measured rows lead";
-proc report data=work.emerging(where=(trend_confidence in ('High', 'Medium'))) nowd;
+title4 "Clinical AEs only - qc_time_trend.csv counts what pt_category held back";
+proc report data=work.emerging(where=(trend_confidence in ('High', 'Medium')
+                                      and pt_category = 'CLINICAL_AE')) nowd;
     columns drug_label pt trend emerging_basis signal_velocity
             a_q1 prr_q1 a_q2 prr_q2 a_q3 prr_q3 a_q4 prr_q4;
     define drug_label      / display 'Drug';
@@ -841,7 +864,8 @@ run;
 
 title3 "Table 2: Low-confidence emerging and accelerating rows - reported, not filtered";
 title4 "Two or fewer evaluable quarters; COVERAGE_NOTE names the gaps and the volume behind them";
-proc print data=work.emerging(where=(trend_confidence = 'Low')) noobs label;
+proc print data=work.emerging(where=(trend_confidence = 'Low'
+                                     and pt_category = 'CLINICAL_AE')) noobs label;
     var drug_label pt trend emerging_basis signal_velocity coverage_note;
     format signal_velocity 8.2;
 run;
@@ -999,6 +1023,14 @@ data work.qc_time_trend;
     value  = &N_EMERG_MEAS;
     note   = 'The defensible subset - read these first';                           output;
 
+    metric = 'Emerging or accelerating - non-clinical PT';
+    value  = &N_NOISE_EMERGING;
+    note   = 'Kept in glp1_emerging.csv, held out of Tables 1 and 2';              output;
+
+    metric = 'Emerging or accelerating - clinical AE';
+    value  = &N_CLINICAL_EMERGING;
+    note   = 'pt_category=CLINICAL_AE - the population the tables display';        output;
+
     metric = 'Trend classification - Accelerating';
     value  = &N_ACCEL;
     note   = 'Signal in >= 3 quarters and last PRR > 1.3x first';                  output;
@@ -1143,6 +1175,7 @@ title2;
     %put NOTE: Quarter status      = &N_EVAL evaluable / &N_THIN thin / &N_ABSENT absent;
     %put NOTE: Emerging            = &N_EMERGING (&N_EMERG_MEAS measured);
     %put NOTE: Accelerating        = &N_ACCEL;
+    %put NOTE: Non-clinical PTs     = &N_NOISE_EMERGING held out of the tables, &N_CLINICAL_EMERGING clinical remain;
     %put NOTE: Stable / Declining  = &N_STABLE / &N_DECL (&N_WEBER Weber-annotated);
     %put NOTE: Monotonic            = &N_MONO_ACC of &N_ACCEL accelerating / &N_MONO_DEC of &N_DECL declining;
     %put NOTE: Inconsistent        = &N_INCONS;
