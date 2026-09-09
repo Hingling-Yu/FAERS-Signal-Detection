@@ -47,10 +47,12 @@
         N          = a + b + c + d
         PRR_CHI2   = N * (a*d - b*c)**2 / ((a+b) * (c+d) * (a+c) * (b+d))
 
-    Chi-square is reported uncorrected on purpose: Evans' signal criteria
-    (PRR >= 2, chi2 >= 4, n >= 3) were defined against the uncorrected
-    statistic, so applying a Yates correction here would silently shift the
-    signal threshold.
+    Chi-square is reported uncorrected (no Yates continuity correction).
+    The common operationalisation of Evans et al. (2001) applies the
+    uncorrected Pearson chi-square, though some implementations use Yates.
+    We document the choice here: 7,249 of the engine's Evans signals
+    (5.7%, all a <= 10) would fall below chi2 = 4 under Yates' correction.
+    A future sensitivity run could add a yates=0|1 parameter to this macro.
 
   Zero cells
     If any of a, b, c, d is zero or missing, PRR, both bounds and PRR_CHI2
