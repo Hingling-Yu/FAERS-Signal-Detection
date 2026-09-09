@@ -11,7 +11,8 @@
  * Usage:     %include "/home/u64291357/mydata/sas/00_config.sas";
  *            at the top of every .sas program.
  *
- * Author:    Hingling Yu
+ * Author:    Hingling Yu (design, specification, execution, review)
+ *            Code drafted with AI coding assistant (Claude)
  * Created:   2026-09-02
  *****************************************************************************/
 

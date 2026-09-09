@@ -17,7 +17,8 @@
  * DQ2 (DELETE files) and DQ7 (dedup) are handled in 01_import_clean.sas,
  * because they operate across tables rather than within a single file.
  *
- * Author:   Hingling Yu
+ * Author:   Hingling Yu (design, specification, execution, review)
+ *           Code drafted with AI coding assistant (Claude)
  * Created:  2026-09-02
  *****************************************************************************/
 

@@ -81,7 +81,8 @@
  * They are different variables that share a name; GLP1_CASES holds only the
  * derived one.
  *
- * Author:   Hingling Yu
+ * Author:   Hingling Yu (design, specification, execution, review)
+ *           Code drafted with AI coding assistant (Claude)
  * Created:  2026-09-05
  *****************************************************************************/
 

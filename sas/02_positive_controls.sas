@@ -45,7 +45,8 @@
  * from different FAERS windows and different background populations than
  * this one, so a value outside the range is a prompt to look, not a failure.
  *
- * Author:   Hingling Yu
+ * Author:   Hingling Yu (design, specification, execution, review)
+ *           Code drafted with AI coding assistant (Claude)
  * Created:  2026-09-04
  *****************************************************************************/
 

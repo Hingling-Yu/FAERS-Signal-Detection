@@ -69,7 +69,8 @@
  * counts in QC. A reviewer who wants the medication-error signals reads the
  * same CSV with a different WHERE clause.
  *
- * Author:   Hingling Yu
+ * Author:   Hingling Yu (design, specification, execution, review)
+ *           Code drafted with AI coding assistant (Claude)
  * Created:  2026-09-09
  *****************************************************************************/
 

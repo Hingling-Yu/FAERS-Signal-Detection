@@ -53,7 +53,8 @@
  *                    the MySQL default those backslashes are eaten and, where
  *                    a quoted value ends in one, whole rows are lost.
  *
- * Author:   Hingling Yu
+ * Author:   Hingling Yu (design, specification, execution, review)
+ *           Code drafted with AI coding assistant (Claude)
  * Created:  2026-09-03
  *****************************************************************************/
 

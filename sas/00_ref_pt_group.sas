@@ -100,7 +100,8 @@
  * recompute the 2x2. A case reporting both 'Pancreatitis' and 'Pancreatitis
  * acute' is one case, not two.
  *
- * Author:   Hingling Yu
+ * Author:   Hingling Yu (design, specification, execution, review)
+ *           Code drafted with AI coding assistant (Claude)
  * Created:  2026-09-06
  *****************************************************************************/
 

@@ -77,7 +77,8 @@
  * exists because the fragmentation Step 3 measured applies here too: an age
  * pattern split across five pancreatitis PTs surfaces at none of them.
  *
- * Author:   Hingling Yu
+ * Author:   Hingling Yu (design, specification, execution, review)
+ *           Code drafted with AI coding assistant (Claude)
  * Created:  2026-09-06
  *****************************************************************************/
 

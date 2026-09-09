@@ -22,7 +22,8 @@
  *           reaction is common within the drug's own reports, so reporting
  *           both is the standard robustness check.
  *
- * Author:   Hingling Yu
+ * Author:   Hingling Yu (design, specification, execution, review)
+ *           Code drafted with AI coding assistant (Claude)
  * Created:  2026-09-03
  *****************************************************************************/
 
