@@ -34,7 +34,7 @@
  * Gate 2 is the Evans criterion alone: every control must satisfy
  * signal_flag = 1. ROR is reported beside it and is expected to agree.
  *
- * EBGM is informational and deliberately NOT part of the gate. MGPS shrinks
+ * EBGM is informational and deliberately NOT part of the gate. EB shrinks
  * a ratio toward the fitted background prior, so a control resting on few
  * cases can clear PRR >= 2 and miss EB05 >= 2 without either measure being
  * wrong - that gap is the documented behaviour of the method, not a defect
@@ -255,7 +255,7 @@ proc sql noprint;
     select count(*) into :PC_MISSED trimmed
         from work.pc_results where detected_evans ne 'YES';
 
-    /* Evans found it, MGPS did not. Informational - see the header. */
+    /* Evans found it, EB did not. Informational - see the header. */
     select count(*) into :PC_EB_DISAGREE trimmed
         from work.pc_results
         where detected_evans = 'YES' and detected_ebgm ne 'YES';
@@ -285,11 +285,11 @@ data work.qc_pc;
 
     metric = 'Detected - EBGM (signal_ebgm = 1)';
     value  = &PC_EBGM;
-    note   = 'Informational - MGPS shrinkage may miss sparse pairs'; output;
+    note   = 'Informational - untruncated EB fit (prior mean 17.3), not validated MGPS'; output;
 
     metric = 'Detected - all three criteria';
     value  = &PC_ALL3;
-    note   = 'Strongest validation of the engine';                  output;
+    note   = 'Intersection; EBGM uses a mis-fit prior - Evans + ROR is the gate'; output;
 
     metric = 'Missed controls';
     value  = &PC_MISSED;

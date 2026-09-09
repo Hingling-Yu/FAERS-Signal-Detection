@@ -68,6 +68,11 @@
  * validated at Gate 2, which is a change nobody has asked for. Every flag in
  * this program is PRR-based, so nothing here needs it.
  *
+ * Additionally, the delivered EBGM uses an untruncated prior that is mis-fit
+ * - fitted prior mean 17.3 against DuMouchel's ~1.04, per the independent
+ * review of 2026-09-09. That is a second, independent reason to keep it out
+ * of the comparison tables.
+ *
  * -----------------------------------------------------------------------
  * CI_OVERLAP - WHY A PRR DIFFERENCE IS NOT YET A DIFFERENCE
  * -----------------------------------------------------------------------
