@@ -10,9 +10,10 @@
  * Inputs:   SIGNAL.ALL_SIGNALS   every evaluated pair, flagged
  *                                (produced by 02_signal_engine.sas)
  *
- * Outputs:  SIGNAL.POSITIVE_CONTROLS               one row per control pair
- *           &OUT_TABLES/positive_controls.csv      the same, for review
- *           &OUT_QC/qc_positive_controls.csv       Gate 2 summary metrics
+ * Outputs:  SIGNAL.POSITIVE_CONTROLS                   one row per positive control pair
+ *           &OUT_TABLES/positive_controls.csv           the same, for review
+ *           &OUT_TABLES/negative_controls.csv           negative control results
+ *           &OUT_QC/qc_positive_negative_controls.csv   Gate 2 + specificity metrics
  *
  * -----------------------------------------------------------------------
  * METHOD - why a LEFT JOIN and not an INNER JOIN
@@ -40,6 +41,11 @@
  * wrong - that gap is the documented behaviour of the method, not a defect
  * in the engine. It is logged as a WARNING so the disagreement is on the
  * record rather than silently absorbed.
+ *
+ * Negative controls (specificity) must ALL show signal_flag = 0. A false
+ * positive on a known non-association means the engine over-fires. Pairs
+ * that are absent from ALL_SIGNALS (NOT EVAL) are acceptable - they simply
+ * had too few reports to be evaluated, which is not a specificity failure.
  *
  * Author:   Hingling Yu (design, specification, execution, review)
  *           Code drafted with AI coding assistant (Claude)
@@ -145,6 +151,46 @@ quit;
 
 
 /*==========================================================================
+  2b. NEGATIVE CONTROL LIST
+  --------------------------------------------------------------------------
+  Known non-associations where the engine should NOT fire. These pairs use
+  drugs already in the positive list (so we know they have FAERS volume) but
+  map them to reactions they do not cause. A signal_flag = 1 on any of these
+  is a false positive.
+
+  Selection rationale:
+  - Each drug appears in the positive controls, so report volume is adequate
+  - Each PT is biologically unrelated to the drug's mechanism
+  - None appears on the drug's label, in class-effect literature, or in
+    FDA safety communications
+  ==========================================================================*/
+data work.negative_controls;
+    length neg_id 8 prod_ai $500 pt $100 rationale $120;
+    infile datalines dlm='|' truncover;
+    input neg_id prod_ai $ pt $ rationale $;
+
+    label neg_id     = 'Pair'
+          prod_ai    = 'Drug (prod_ai)'
+          pt         = 'Reaction (PT)'
+          rationale  = 'Why this is a non-association';
+    datalines;
+1|ATORVASTATIN|Tendon rupture|Tendon damage is a fluoroquinolone class effect, not a statin effect
+2|CIPROFLOXACIN|Rhabdomyolysis|Rhabdomyolysis is a statin class effect, not a fluoroquinolone effect
+3|SEMAGLUTIDE|Rhabdomyolysis|No known mechanism linking GLP-1 agonists to skeletal muscle breakdown
+4|WARFARIN|Depression|Anticoagulants have no CNS mechanism for mood disorders
+5|ISOTRETINOIN|Haemorrhage|Retinoids have no anticoagulant mechanism
+6|METHOTREXATE|Tendon rupture|Tendon damage is fluoroquinolone-specific, not seen with antimetabolites
+;
+run;
+
+proc sql noprint;
+    select count(*) into :N_NC trimmed from work.negative_controls;
+quit;
+
+%put NOTE: Negative controls defined = &N_NC;
+
+
+/*==========================================================================
   3. LOOK EACH CONTROL UP IN THE SIGNAL TABLE
   ==========================================================================*/
 proc sql;
@@ -207,6 +253,39 @@ quit;
 %assert_one_row_each
 
 %_stamp(Controls looked up.)
+
+
+/*==========================================================================
+  3b. LOOK EACH NEGATIVE CONTROL UP IN THE SIGNAL TABLE
+  ==========================================================================*/
+proc sql;
+    create table work.nc_results as
+    select  n.neg_id,
+            n.prod_ai  as expected_drug  length=500 label='Drug (prod_ai)',
+            n.pt       as expected_pt    length=100 label='Reaction (PT)',
+            n.rationale,
+
+            s.a,
+            s.n_drug,
+            s.n_reac,
+            s.PRR,
+            s.PRR_CHI2,
+            s.signal_flag,
+            s.signal_ror,
+
+            case when s.signal_flag = 1 then 'FALSE POS'
+                 when missing(s.signal_flag) then 'NOT EVAL'
+                 else 'CORRECT'
+                 end as nc_result length=9 label='Negative control result'
+
+    from work.negative_controls n
+         left join signal.all_signals s
+             on upcase(strip(n.prod_ai)) = upcase(strip(s.prod_ai))
+            and upcase(strip(n.pt))      = upcase(strip(s.pt))
+    order by n.neg_id;
+quit;
+
+%_stamp(Negative controls looked up.)
 
 
 /*==========================================================================
@@ -292,6 +371,65 @@ run;
 %gate2_verdict
 
 
+/*--------------------------------------------------------------------------
+  4b. NEGATIVE CONTROL METRICS
+  --------------------------------------------------------------------------*/
+proc sql noprint;
+    select count(*) into :NC_FP trimmed
+        from work.nc_results where nc_result = 'FALSE POS';
+    select count(*) into :NC_CORRECT trimmed
+        from work.nc_results where nc_result = 'CORRECT';
+    select count(*) into :NC_NOTEVAL trimmed
+        from work.nc_results where nc_result = 'NOT EVAL';
+quit;
+
+/* Append negative control metrics to the QC dataset */
+data work.qc_nc;
+    length metric $60 value 8 note $90;
+
+    metric = 'Negative controls defined';
+    value  = &N_NC;
+    note   = 'Known non-associations the engine should NOT flag'; output;
+
+    metric = 'Negative controls correct (not flagged)';
+    value  = &NC_CORRECT;
+    note   = "Specificity check - should be &N_NC";              output;
+
+    metric = 'Negative controls false positive';
+    value  = &NC_FP;
+    note   = 'Must be 0 - a flagged non-association means over-firing'; output;
+
+    metric = 'Negative controls not evaluated';
+    value  = &NC_NOTEVAL;
+    note   = 'Pair absent from ALL_SIGNALS - low volume, acceptable'; output;
+
+    label metric = 'Metric' value = 'Value' note = 'Note';
+run;
+
+/* Merge positive and negative QC into one dataset */
+data work.qc_pc;
+    set work.qc_pc work.qc_nc;
+run;
+
+%macro nc_verdict;
+    %if &NC_FP = 0 %then
+        %put NOTE: NEGATIVE CONTROLS PASSED - 0 false positives out of &N_NC pairs.;
+    %else %do;
+        %put WARNING: &NC_FP of &N_NC negative controls flagged as signals (false positives).;
+
+        proc print data=work.nc_results noobs label;
+            where nc_result = 'FALSE POS';
+            var neg_id expected_drug expected_pt a PRR PRR_CHI2;
+            format expected_drug $30. expected_pt $30. a comma8. PRR PRR_CHI2 10.2;
+            title2 'NEGATIVE CONTROL - false positive details';
+        run;
+        title2;
+    %end;
+%mend nc_verdict;
+
+%nc_verdict
+
+
 /*==========================================================================
   5. REPORTING
   --------------------------------------------------------------------------
@@ -320,6 +458,16 @@ title2 "Table 2: Gate 2 Summary";
 proc print data=work.qc_pc noobs label;
     format value comma8.;
 run;
+
+title2 "Table 3: Negative Control Validation Results";
+proc print data=work.nc_results noobs label;
+    var neg_id expected_drug expected_pt rationale a
+        PRR PRR_CHI2 signal_flag nc_result;
+    format expected_drug $22. expected_pt $24. rationale $50.
+           a comma8. PRR PRR_CHI2 8.2;
+    label PRR_CHI2 = 'Chi-sq'
+          a        = 'Cases (a)';
+run;
 title2;
 
 
@@ -334,8 +482,12 @@ proc export data=work.pc_results
             outfile="&OUT_TABLES./positive_controls.csv" dbms=csv replace;
 run;
 
+proc export data=work.nc_results
+            outfile="&OUT_TABLES./negative_controls.csv" dbms=csv replace;
+run;
+
 proc export data=work.qc_pc
-            outfile="&OUT_QC./qc_positive_controls.csv" dbms=csv replace;
+            outfile="&OUT_QC./qc_positive_negative_controls.csv" dbms=csv replace;
 run;
 
 
@@ -354,9 +506,15 @@ run;
     %put NOTE: Detected - EBGM  = &PC_EBGM;
     %put NOTE: All 3 criteria   = &PC_ALL3;
     %put NOTE: Missed           = &PC_MISSED;
+    %put NOTE: --- Negative Controls ---;
+    %put NOTE: Neg controls defined  = &N_NC;
+    %put NOTE: Correct (not flagged) = &NC_CORRECT;
+    %put NOTE: False positives       = &NC_FP;
+    %put NOTE: Not evaluated         = &NC_NOTEVAL;
+    %put NOTE: Neg CSV               = &OUT_TABLES./negative_controls.csv;
     %put NOTE: Output           = SIGNAL.POSITIVE_CONTROLS;
     %put NOTE: CSV              = &OUT_TABLES./positive_controls.csv;
-    %put NOTE: QC               = &OUT_QC./qc_positive_controls.csv;
+    %put NOTE: QC               = &OUT_QC./qc_positive_negative_controls.csv;
     %put NOTE: Elapsed          = %sysfunc(putn(&e, time12.2));
     %put NOTE: ============================================;
 
