@@ -743,13 +743,17 @@ data work.trend_summary;
     end;
     else monotonic = .;
 
-    /* Weber effect: a new drug is over-reported in its first years on
-       market, so an early-high, later-lower PRR can be a reporting artifact
-       rather than a falling risk. Annotated, not adjusted for. */
+    /* Weber effect note: early post-marketing over-reporting can produce
+       declining PRR as the novelty fades. TIRZ (approved May 2022 T2D,
+       Nov 2023 obesity) is 2-3 years post-launch during our window, so a
+       Weber contribution is plausible. SEMA (Dec 2017 T2D, Jun 2021
+       obesity) is 4-8 years post-launch - too late for a classic Weber
+       effect; a declining SEMA PRR more likely reflects the 5x quarterly
+       volume swing (13.5K -> 2.7K -> 2.9K -> 15.1K). */
     if trend = 'Declining' and drug_label = 'TIRZEPATIDE' then
-        weber_note = 'Possible Weber effect - TIRZ approved May 2022 (T2D) and Nov 2023 (obesity)';
+        weber_note = 'Possible Weber effect - TIRZ 2-3 years post-launch during window';
     else if trend = 'Declining' and drug_label = 'SEMAGLUTIDE' then
-        weber_note = 'Possible Weber effect - SEMA approved Dec 2017 (T2D) and Jun 2021 (obesity)';
+        weber_note = 'Volume artefact more likely than Weber - SEMA is 8 years post-T2D approval';
     else
         weber_note = '';
 
