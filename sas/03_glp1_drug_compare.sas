@@ -94,11 +94,12 @@
  * -----------------------------------------------------------------------
  * CI_OVERLAP - WHY A PRR DIFFERENCE IS NOT YET A DIFFERENCE
  * -----------------------------------------------------------------------
- * prr_diff and prr_ratio will separate pairs whose confidence intervals
- * overlap completely. CI_OVERLAP = 0 marks the subset where the two 95%
- * intervals are disjoint, which is the defensible reading of "these two
- * differ". It is reported, never used to filter: an overlapping pair is
- * evidence of no difference, not an absence of evidence.
+ * Disjoint CIs guarantee a significant difference at the 95% level, but
+ * overlapping CIs do NOT prove no difference - the actual test (z on log
+ * PRR ratio) rejects for 6 of 34 "Similar" rows. CI overlap is used here
+ * as a conservative screen: it misses real differences but never calls a
+ * non-difference significant. The ci_overlap column should be read as
+ * "at least this different", not "exactly this different".
  *
  * Author:   Hingling Yu
  * Created:  2026-09-06
@@ -477,9 +478,11 @@ proc sql;
                      else 'SEMA higher'
                 end as direction length=13,
 
-                /* Disjoint 95% intervals. Reported, never used to filter -
-                   an overlap is evidence of no difference, not missing
-                   evidence. */
+                /* Disjoint 95% intervals (ci_overlap = 0) guarantee a
+                   significant difference; an overlap does NOT prove no
+                   difference. Reported, never used to filter - it is a
+                   conservative screen, so read it as "at least this
+                   different", not "exactly this different". */
                 case when nmiss(s.PRR_LCL, s.PRR_UCL, t.PRR_LCL, t.PRR_UCL) > 0
                          then .
                      else (s.PRR_LCL <= t.PRR_UCL and t.PRR_LCL <= s.PRR_UCL)
