@@ -174,12 +174,12 @@ data work.negative_controls;
           pt         = 'Reaction (PT)'
           rationale  = 'Why this is a non-association';
     datalines;
-1|ATORVASTATIN|Tendon rupture|Tendon damage is a fluoroquinolone class effect, not a statin effect
-2|CIPROFLOXACIN|Rhabdomyolysis|Rhabdomyolysis is a statin class effect, not a fluoroquinolone effect
+1|ATORVASTATIN|Pancreatitis|Statins have no pancreatic mechanism; pancreatitis is a GLP-1 and gallstone association
+2|CIPROFLOXACIN|Alopecia|Fluoroquinolones have no hair-loss mechanism; alopecia is a chemotherapy and retinoid effect
 3|SEMAGLUTIDE|Rhabdomyolysis|No known mechanism linking GLP-1 agonists to skeletal muscle breakdown
 4|WARFARIN|Depression|Anticoagulants have no CNS mechanism for mood disorders
 5|ISOTRETINOIN|Haemorrhage|Retinoids have no anticoagulant mechanism
-6|METHOTREXATE|Tendon rupture|Tendon damage is fluoroquinolone-specific, not seen with antimetabolites
+6|METHOTREXATE|Insomnia|MTX is an antimetabolite with no CNS sleep-wake mechanism
 ;
 run;
 
