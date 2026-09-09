@@ -178,8 +178,10 @@ options compress=yes;
   disproportionality asks whether a drug SUSPECTED of causing the event is
   reported with it more often than expected; counting every concomitant
   medication would attribute the event to whatever the patient happened to
-  also be taking. Secondary suspect ('SS') is excluded for the same reason
-  the FDA's own screening does - PS is the reporter's primary attribution.
+  also be taking. Secondary suspect ('SS') is also excluded here - PS alone
+  represents the reporter's primary attribution and is a common choice in
+  published FAERS analyses. Note: regulators typically screen PS + SS
+  together; a PS+SS sensitivity analysis is on the roadmap (see STATUS.md).
 
   SELECT DISTINCT is what makes section 4 correct: FAERS lists one row per
   drug line, so a case naming the same ingredient on three lines produces
