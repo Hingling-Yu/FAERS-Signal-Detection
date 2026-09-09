@@ -190,13 +190,29 @@ quit;
 
 %_stamp(Section 2 - GLP-1 PS drug records extracted.)
 
-/* Collapse to the analytical grain. Sorting by drug_seq before the NODUPKEY
-   makes the surviving row the lowest drug_seq for that molecule, so the
-   result is reproducible rather than whatever order the join happened to
-   emit. */
-proc sort data=work.glp1_drug_all out=work.glp1_drug nodupkey;
+/* Collapse to the analytical grain: one row per case per molecule.
+   Sort by drug_seq first so NODUPKEY keeps the lowest drug_seq - a
+   reproducible tiebreaker rather than whatever order the join emitted. */
+proc sort data=work.glp1_drug_all;
     by primaryid drug_label drug_seq;
 run;
+
+proc sort data=work.glp1_drug_all out=work.glp1_drug nodupkey;
+    by primaryid drug_label;
+run;
+
+/* Assertion: grain must now be exactly primaryid x drug_label */
+proc sql noprint;
+    select count(*) into :_grain_total trimmed from work.glp1_drug;
+    select count(*) into :_grain_distinct trimmed
+        from (select distinct primaryid, drug_label from work.glp1_drug);
+quit;
+
+%if &_grain_total ne &_grain_distinct %then %do;
+    %put ERROR: Grain violation after NODUPKEY - &_grain_total rows but &_grain_distinct distinct primaryid x drug_label.;
+    %abort cancel;
+%end;
+%else %put NOTE: Grain OK - &_grain_total rows = &_grain_distinct distinct primaryid x drug_label.;
 
 %_stamp(Section 2 - deduplicated to primaryid x drug_label.)
 
