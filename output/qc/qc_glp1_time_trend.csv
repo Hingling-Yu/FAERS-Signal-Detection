@@ -1,0 +1,47 @@
+metric,value,note
+Analysis universe N,1529453,Must equal 1529453 - the Steps 2-4 universe
+Universe cases inside 2025Q3-2026Q2,1329348,The denominator population for every quarterly PRR below
+excluded - initial receive date outside window,200105,Follow-up versions of cases first received before 2025Q3
+excluded - no parseable receive date,0,Neither init_fda_dt nor fda_dt parsed
+Universe cases with a year- or month-only initial date,0,Imputed to the first of the period - biases Q1 if non-zero
+GLP1_CASES quarter disagreeing with DEMO quarter,0,Must be 0 - numerator and denominator share one clock
+DULAGLUTIDE quarterly volume swing (max/min),1.718875502,"from 747 to 1,284 cases per quarter"
+LIRAGLUTIDE quarterly volume swing (max/min),2.3732394366,from 284 to 674 cases per quarter
+SEMAGLUTIDE quarterly volume swing (max/min),5.5528246515,"from 2,726 to 15,137 cases per quarter"
+TIRZEPATIDE quarterly volume swing (max/min),1.1247466372,"from 16,281 to 18,312 cases per quarter"
+Drug x PT pairs tracked,2713,Cleared a >= 3 in at least one quarter
+Drug x PT x quarter rows,10852,Must equal pairs x 4 - the grid has no holes
+Rows with a missing or negative 2x2 cell,0,Must be 0
+"EVALUABLE quarters (a >= 3, PRR computed)",6816,The only rows contributing a PRR to a trend
+"THIN quarters (1-2 cases, no PRR)",2611,"Reported, never estimated - not evidence of no signal"
+ABSENT quarters (0 cases),1425,Grid rows the raw counts would not have produced
+Trend classification - Emerging,293,The star metric - crosses Evans in the second half
+of which Measured (both early quarters evaluable),82,The defensible subset - read these first
+Trend classification - Accelerating,69,Signal in >= 3 quarters and last PRR > 1.3x first
+Trend classification - Stable,39,"Signal in >= 3 quarters, all PRR within 30% of mean"
+Trend classification - Declining,202,Last PRR < 0.7x first - check the Weber annotation
+Trend classification - Inconsistent,2110,Signal present in some quarters with no clear direction
+Weber-annotated declining signals,153,Early-high PRR on a recently approved drug
+Pairs with <= 2 evaluable quarters,1413,"trend_confidence = Low - labelled, not filtered"
+Mean velocity - Emerging signals,0.989846,Must be positive
+Mean velocity - Declining signals,-5.02711,Must be negative
+DULAGLUTIDE / Accelerating,15,Classified pairs
+DULAGLUTIDE / Declining,28,Classified pairs
+DULAGLUTIDE / Emerging,18,Classified pairs
+DULAGLUTIDE / Inconsistent,140,Classified pairs
+DULAGLUTIDE / Stable,5,Classified pairs
+LIRAGLUTIDE / Accelerating,5,Classified pairs
+LIRAGLUTIDE / Declining,21,Classified pairs
+LIRAGLUTIDE / Emerging,45,Classified pairs
+LIRAGLUTIDE / Inconsistent,102,Classified pairs
+LIRAGLUTIDE / Stable,5,Classified pairs
+SEMAGLUTIDE / Accelerating,13,Classified pairs
+SEMAGLUTIDE / Declining,104,Classified pairs
+SEMAGLUTIDE / Emerging,142,Classified pairs
+SEMAGLUTIDE / Inconsistent,937,Classified pairs
+SEMAGLUTIDE / Stable,13,Classified pairs
+TIRZEPATIDE / Accelerating,36,Classified pairs
+TIRZEPATIDE / Declining,49,Classified pairs
+TIRZEPATIDE / Emerging,88,Classified pairs
+TIRZEPATIDE / Inconsistent,931,Classified pairs
+TIRZEPATIDE / Stable,16,Classified pairs
