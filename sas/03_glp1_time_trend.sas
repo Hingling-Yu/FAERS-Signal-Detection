@@ -578,6 +578,7 @@ data work.trend_summary;
 
     length trend $15 trend_confidence $6 emerging_basis $8
            weber_note $110 coverage_note $200;
+    length monotonic 8;
 
     array _prr[4] prr_q1 prr_q2 prr_q3 prr_q4;
     array _ev [4] ev_q1  ev_q2  ev_q3  ev_q4;
@@ -700,6 +701,40 @@ data work.trend_summary;
         coverage_note = catx(' ', 'Not evaluable -', coverage_note);
     end;
 
+    /*----------------------------------------------------------------------
+      Monotonicity. ACCELERATING and DECLINING are decided by comparing the
+      first and last evaluable quarter, which cannot see the shape between
+      them: a PRR that falls for two quarters and then spikes above where it
+      started satisfies "last > first * 1.3" and is labelled Accelerating on
+      a curve that is not rising.
+
+      This walks the evaluable quarters in order and asks whether each step
+      moves the way the label claims. It is a description of the same four
+      points, not a second classifier - TREND is not touched, and a
+      non-monotonic row is still Accelerating. It is left non-strict (>= and
+      <=) so that a flat step between two rising ones does not disqualify an
+      otherwise monotonic series; with PRRs carried to four decimals an exact
+      tie is vanishingly rare either way.
+
+      Missing for every other trend: 'monotonically Inconsistent' has no
+      meaning, and a 0 there would read as a defect rather than as
+      not-applicable.
+      ----------------------------------------------------------------------*/
+    if trend in ('Accelerating', 'Declining') then do;
+        monotonic = 1;
+        _prev = .;
+        do _i = 1 to 4;
+            if _ev[_i] = 1 then do;
+                if not missing(_prev) then do;
+                    if trend = 'Accelerating' and _prr[_i] < _prev then monotonic = 0;
+                    if trend = 'Declining'    and _prr[_i] > _prev then monotonic = 0;
+                end;
+                _prev = _prr[_i];
+            end;
+        end;
+    end;
+    else monotonic = .;
+
     /* Weber effect: a new drug is over-reported in its first years on
        market, so an early-high, later-lower PRR can be a reporting artifact
        rather than a falling risk. Annotated, not adjusted for. */
@@ -710,12 +745,13 @@ data work.trend_summary;
     else
         weber_note = '';
 
-    drop _i _first_i _last_i _max_dev;
+    drop _i _first_i _last_i _max_dev _prev;
 
     label
         trend              = 'Trend classification'
         trend_confidence   = 'Evaluable quarters: High=4 Medium=3 Low<=2'
         emerging_basis     = 'Emerging on measured or inferred early quarters'
+        monotonic          = 'PRR moves one way across evaluable quarters (Accel/Decl only)'
         signal_velocity    = 'PRR change per quarter'
         velocity_span_qtrs = 'Quarters between first and last evaluable'
         first_prr          = 'PRR in first evaluable quarter'
@@ -856,6 +892,11 @@ proc sql noprint;
     select count(*) into :N_STABLE trimmed from work.trend_summary where trend = 'Stable';
     select count(*) into :N_DECL   trimmed from work.trend_summary where trend = 'Declining';
     select count(*) into :N_INCONS trimmed from work.trend_summary where trend = 'Inconsistent';
+
+    select count(*) into :N_MONO_ACC trimmed from work.trend_summary
+        where trend = 'Accelerating' and monotonic = 1;
+    select count(*) into :N_MONO_DEC trimmed from work.trend_summary
+        where trend = 'Declining'    and monotonic = 1;
     select count(*) into :N_WEBER  trimmed from work.trend_summary where weber_note ne '';
 
     select count(*) into :N_LOWCONF trimmed
@@ -962,6 +1003,10 @@ data work.qc_time_trend;
     value  = &N_ACCEL;
     note   = 'Signal in >= 3 quarters and last PRR > 1.3x first';                  output;
 
+    metric = '  of which monotonically rising';
+    value  = &N_MONO_ACC;
+    note   = 'Every evaluable step up - the rest peak or dip on the way';         output;
+
     metric = 'Trend classification - Stable';
     value  = &N_STABLE;
     note   = 'Signal in >= 3 quarters, all PRR within 30% of mean';                output;
@@ -969,6 +1014,10 @@ data work.qc_time_trend;
     metric = 'Trend classification - Declining';
     value  = &N_DECL;
     note   = 'Last PRR < 0.7x first - check the Weber annotation';                 output;
+
+    metric = '  of which monotonically falling';
+    value  = &N_MONO_DEC;
+    note   = 'Every evaluable step down - the rest rebound on the way';           output;
 
     metric = 'Trend classification - Inconsistent';
     value  = &N_INCONS;
@@ -1095,6 +1144,7 @@ title2;
     %put NOTE: Emerging            = &N_EMERGING (&N_EMERG_MEAS measured);
     %put NOTE: Accelerating        = &N_ACCEL;
     %put NOTE: Stable / Declining  = &N_STABLE / &N_DECL (&N_WEBER Weber-annotated);
+    %put NOTE: Monotonic            = &N_MONO_ACC of &N_ACCEL accelerating / &N_MONO_DEC of &N_DECL declining;
     %put NOTE: Inconsistent        = &N_INCONS;
     %put NOTE: Low confidence      = &N_LOWCONF pair(s) with <= 2 evaluable quarters;
     %put NOTE: Datasets            = SIGNAL.GLP1_TIME_TREND / _TREND_SUMMARY / _EMERGING;
