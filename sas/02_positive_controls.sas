@@ -163,6 +163,10 @@ quit;
   - Each PT is biologically unrelated to the drug's mechanism
   - None appears on the drug's label, in class-effect literature, or in
     FDA safety communications
+
+  Rationale text must not contain a semicolon: a ';' inside a DATALINES
+  line ends the data block, and SAS then parses the remainder of the line
+  as statements (ERROR 180-322). Use ' - ' instead.
   ==========================================================================*/
 data work.negative_controls;
     length neg_id 8 prod_ai $500 pt $100 rationale $120;
@@ -174,8 +178,8 @@ data work.negative_controls;
           pt         = 'Reaction (PT)'
           rationale  = 'Why this is a non-association';
     datalines;
-1|ATORVASTATIN|Pancreatitis|Statins have no pancreatic mechanism; pancreatitis is a GLP-1 and gallstone association
-2|CIPROFLOXACIN|Alopecia|Fluoroquinolones have no hair-loss mechanism; alopecia is a chemotherapy and retinoid effect
+1|ATORVASTATIN|Pancreatitis|Statins have no pancreatic mechanism - pancreatitis is a GLP-1 and gallstone association
+2|CIPROFLOXACIN|Alopecia|Fluoroquinolones have no hair-loss mechanism - alopecia is a chemotherapy and retinoid effect
 3|SEMAGLUTIDE|Rhabdomyolysis|No known mechanism linking GLP-1 agonists to skeletal muscle breakdown
 4|WARFARIN|Depression|Anticoagulants have no CNS mechanism for mood disorders
 5|ISOTRETINOIN|Haemorrhage|Retinoids have no anticoagulant mechanism
