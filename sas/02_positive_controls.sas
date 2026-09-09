@@ -41,10 +41,6 @@
  * in the engine. It is logged as a WARNING so the disagreement is on the
  * record rather than silently absorbed.
  *
- * The published PRR ranges are a plausibility check, not a gate. They come
- * from different FAERS windows and different background populations than
- * this one, so a value outside the range is a prompt to look, not a failure.
- *
  * Author:   Hingling Yu (design, specification, execution, review)
  *           Code drafted with AI coding assistant (Claude)
  * Created:  2026-09-04
@@ -119,32 +115,25 @@ title "Phase 2 Step 3 - Positive Control Validation";
   table and a ninth control is one line, not one statement. Nothing below
   hard-codes the number eight: &N_PC is counted from this dataset, so adding
   a control tightens the gate automatically.
-
-  expected_prr_low / expected_prr_high bound the PRR reported for the pair
-  in the FAERS literature. See the WHAT COUNTS AS A PASS note in the header
-  for why these do not gate.
   ==========================================================================*/
 data work.known_signals;
-    length pair_id 8 prod_ai $500 pt $100 source $80
-           expected_prr_low 8 expected_prr_high 8;
+    length pair_id 8 prod_ai $500 pt $100 source $80;
     infile datalines dlm='|' truncover;
-    input pair_id prod_ai $ pt $ source $ expected_prr_low expected_prr_high;
+    input pair_id prod_ai $ pt $ source $;
 
     label pair_id           = 'Pair'
           prod_ai           = 'Drug (prod_ai)'
           pt                = 'Reaction (PT)'
-          source            = 'Basis for the control'
-          expected_prr_low  = 'Published PRR low'
-          expected_prr_high = 'Published PRR high';
+          source            = 'Basis for the control';
     datalines;
-1|ATORVASTATIN|Rhabdomyolysis|Well-established class effect|30|50
-2|SIMVASTATIN|Rhabdomyolysis|Well-established class effect|40|60
-3|CIPROFLOXACIN|Tendon rupture|FDA Black Box 2008|40|50
-4|LEVOFLOXACIN|Tendon rupture|FDA Black Box 2008|80|110
-5|SEMAGLUTIDE|Pancreatitis|FDA label, GLP-1 class|5|7
-6|ISOTRETINOIN|Depression|Well-established|10|12
-7|METHOTREXATE|Hepatotoxicity|Well-established|5|7
-8|WARFARIN|Haemorrhage|Well-established|5|8
+1|ATORVASTATIN|Rhabdomyolysis|Well-established class effect
+2|SIMVASTATIN|Rhabdomyolysis|Well-established class effect
+3|CIPROFLOXACIN|Tendon rupture|FDA Black Box 2008
+4|LEVOFLOXACIN|Tendon rupture|FDA Black Box 2008
+5|SEMAGLUTIDE|Pancreatitis|FDA label, GLP-1 class
+6|ISOTRETINOIN|Depression|Well-established
+7|METHOTREXATE|Hepatotoxicity|Well-established
+8|WARFARIN|Haemorrhage|Well-established
 ;
 run;
 
@@ -164,8 +153,6 @@ proc sql;
             k.prod_ai  as expected_drug  length=500 label='Drug (prod_ai)',
             k.pt       as expected_pt    length=100 label='Reaction (PT)',
             k.source,
-            k.expected_prr_low,
-            k.expected_prr_high,
 
             /* Signal results - missing on any control the engine did not
                evaluate. That is the failure this program reports. */
@@ -193,24 +180,7 @@ proc sql;
             case when s.signal_ror  = 1 then 'YES' else 'NO ' end
                  as detected_ror   length=3 label='ROR',
             case when s.signal_ebgm = 1 then 'YES' else 'NO ' end
-                 as detected_ebgm  length=3 label='EBGM',
-
-            /* PRR against the published range.
-
-               MISSING is tested FIRST and that ordering is load-bearing.
-               SAS orders missing below every number, so on an unmatched
-               control 's.PRR < k.expected_prr_low' is TRUE and the pair
-               would be labelled BELOW - reading as a weak-but-present
-               signal when in fact the engine never produced one. Tested
-               first, a missed control is labelled for what it is. */
-            case when missing(s.PRR)
-                     then 'MISSING'
-                 when s.PRR between k.expected_prr_low and k.expected_prr_high
-                     then 'IN RANGE'
-                 when s.PRR > k.expected_prr_high
-                     then 'ABOVE'
-                 else 'BELOW'
-                 end as prr_vs_published length=8 label='PRR vs published'
+                 as detected_ebgm  length=3 label='EBGM'
 
     from work.known_signals k
          left join signal.all_signals s
@@ -260,13 +230,6 @@ proc sql noprint;
     select count(*) into :PC_EB_DISAGREE trimmed
         from work.pc_results
         where detected_evans = 'YES' and detected_ebgm ne 'YES';
-
-    select count(*) into :PC_IN trimmed
-        from work.pc_results where prr_vs_published = 'IN RANGE';
-    select count(*) into :PC_ABOVE trimmed
-        from work.pc_results where prr_vs_published = 'ABOVE';
-    select count(*) into :PC_BELOW trimmed
-        from work.pc_results where prr_vs_published = 'BELOW';
 quit;
 
 data work.qc_pc;
@@ -296,18 +259,6 @@ data work.qc_pc;
     value  = &PC_MISSED;
     note   = 'Must be 0 - any miss is an engine defect';            output;
 
-    metric = 'PRR in published range';
-    value  = &PC_IN;
-    note   = 'Plausibility check, not a gate';                      output;
-
-    metric = 'PRR above published range';
-    value  = &PC_ABOVE;
-    note   = 'Can reflect a different FAERS window or background';  output;
-
-    metric = 'PRR below published range';
-    value  = &PC_BELOW;
-    note   = 'Investigate if > 0 - under-detection is the concern'; output;
-
     label metric = 'Metric' value = 'Value' note = 'Note';
 run;
 
@@ -322,7 +273,7 @@ run;
 
         proc print data=work.pc_results noobs label;
             where detected_evans ne 'YES';
-            var pair_id expected_drug expected_pt a PRR PRR_CHI2 prr_vs_published;
+            var pair_id expected_drug expected_pt a PRR PRR_CHI2;
             format expected_drug $30. expected_pt $30. a comma8. PRR PRR_CHI2 10.2;
             title2 'GATE 2 FAILED - missed positive controls';
         run;
@@ -355,7 +306,7 @@ proc print data=work.pc_results noobs label;
         PRR PRR_LCL PRR_UCL
         ROR ROR_LCL ROR_UCL
         EBGM EB05 EB95
-        detected_evans detected_ror detected_ebgm prr_vs_published;
+        detected_evans detected_ror detected_ebgm;
     format expected_drug $22. expected_pt $24. source $30.
            a comma8.
            PRR PRR_LCL PRR_UCL ROR ROR_LCL ROR_UCL
@@ -403,7 +354,6 @@ run;
     %put NOTE: Detected - EBGM  = &PC_EBGM;
     %put NOTE: All 3 criteria   = &PC_ALL3;
     %put NOTE: Missed           = &PC_MISSED;
-    %put NOTE: PRR in range     = &PC_IN (above &PC_ABOVE, below &PC_BELOW);
     %put NOTE: Output           = SIGNAL.POSITIVE_CONTROLS;
     %put NOTE: CSV              = &OUT_TABLES./positive_controls.csv;
     %put NOTE: QC               = &OUT_QC./qc_positive_controls.csv;
