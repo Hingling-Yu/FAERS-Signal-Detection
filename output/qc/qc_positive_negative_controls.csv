@@ -1,0 +1,11 @@
+metric,value,note
+Positive controls defined,8,Known drug x reaction pairs the engine must recover
+Detected - Evans (signal_flag = 1),8,Gate 2 criterion - must be 8
+Detected - ROR (signal_ror = 1),8,Expected to agree with Evans on all 8
+Detected - EBGM (signal_ebgm = 1),8,"Informational - untruncated EB fit (prior mean 17.3), not validated MGPS"
+Detected - all three criteria,8,Intersection; EBGM uses a mis-fit prior - Evans + ROR is the gate
+Missed controls,0,Must be 0 - any miss is an engine defect
+Negative controls defined,6,Known non-associations the engine should NOT flag
+Negative controls correct (not flagged),6,Specificity check - should be 6
+Negative controls false positive,0,Must be 0 - a flagged non-association means over-firing
+Negative controls not evaluated,0,"Pair absent from ALL_SIGNALS - low volume, acceptable"

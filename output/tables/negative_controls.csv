@@ -1,0 +1,7 @@
+neg_id,expected_drug,expected_pt,rationale,a,n_drug,n_reac,PRR,PRR_CHI2,signal_flag,signal_ror,nc_result
+1,ATORVASTATIN,Pancreatitis,Statins have no pancreatic mechanism - pancreatitis is a GLP-1 and gallstone association,4,4354,3549,0.3952,3.7060,0,0,CORRECT
+2,CIPROFLOXACIN,Alopecia,Fluoroquinolones have no hair-loss mechanism - alopecia is a chemotherapy and retinoid effect,12,1696,12649,0.8554,0.2955,0,0,CORRECT
+3,SEMAGLUTIDE,Rhabdomyolysis,No known mechanism linking GLP-1 agonists to skeletal muscle breakdown,24,35651,2851,0.3557,27.8224,0,0,CORRECT
+4,WARFARIN,Depression,Anticoagulants have no CNS mechanism for mood disorders,2,272,11575,0.9716,0.0017,0,0,CORRECT
+5,ISOTRETINOIN,Haemorrhage,Retinoids have no anticoagulant mechanism,1,3940,7458,0.0519,17.3939,0,0,CORRECT
+6,METHOTREXATE,Insomnia,MTX is an antimetabolite with no CNS sleep-wake mechanism,86,5997,16253,1.3513,7.8982,0,1,CORRECT

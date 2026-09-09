@@ -14,9 +14,15 @@ raw-data/
 # --- Regenerable SAS output ------------------------------------------------
 output/clean/
 output/signal/
-output/tables/
 output/figures/
 output/logs/
+
+# output/tables/ uses the /* form, not a trailing slash: git cannot re-include
+# a file whose parent DIRECTORY is excluded, so 'output/tables/' would make the
+# two negations below dead rules. Same pattern as output/csv/* further down.
+output/tables/*
+!output/tables/positive_controls.csv
+!output/tables/negative_controls.csv
 
 # Same categories wherever else they land
 *.sas7bdat
