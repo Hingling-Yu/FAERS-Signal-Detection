@@ -9,8 +9,8 @@ LIRAGLUTIDE Evans signals,135,"108 single-ingredient, from 1,171 pairs / 2 prod_
 SEMAGLUTIDE Evans signals,368,"363 single-ingredient, from 3,902 pairs / 11 prod_ai"
 TIRZEPATIDE Evans signals,204,"192 single-ingredient, from 3,654 pairs / 14 prod_ai"
 ROR signals (signal_ror=1),1894,"ROR 95% CI lower bound > 1, no case-count floor"
-EBGM signals (signal_ebgm=1),669,"EB05 >= 2, the FDA MGPS criterion"
-All three criteria,466,Evans AND ROR AND EBGM - the most defensible subset
+EBGM signals (signal_ebgm=1),669,"EB05 >= 2, untruncated fit - ranking reference only"
+All three criteria,466,Intersection - EBGM uses a mis-fit prior; Evans + ROR is the count
 DULAGLUTIDE cases in 2x2,4028,"Step 1 cohort 4,028 - difference 0.00 %"
 LIRAGLUTIDE cases in 2x2,1830,"Step 1 cohort 1,830 - difference 0.00 %"
 SEMAGLUTIDE cases in 2x2,35705,"Step 1 cohort 35,705 - difference 0.00 %"
@@ -20,5 +20,5 @@ Evans signals excluded as a combination,44,"Kept in GLP1_SIGNALS, held out of th
 Top-20 slots held by a combination,0,Must be 0 - the single_ingredient filter guarantees it
 Rows in the top-signals table,80,"Up to 20 per molecule, fewer where signals are scarce"
 SEMAGLUTIDE x Pancreatitis PRR,6.1774,Gate 2 positive control - expected 6.18 on 456 cases
-SEMAGLUTIDE x Pancreatitis rank (EBGM),92,Position within SEMAGLUTIDE - <=20 means it makes the table
-SEMAGLUTIDE x Pancreatitis rank (PRR),125,Same set ordered by PRR - not the 129 of the unfiltered run
+SEMAGLUTIDE x Pancreatitis rank (PRR),125,Delivered ordering - <=20 means it makes the table
+SEMAGLUTIDE x Pancreatitis rank (EBGM),92,"Retired ordering, same set - contrast only, EBGM is mis-fit"
