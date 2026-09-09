@@ -141,8 +141,11 @@ TRUNCATE TABLE rpsr;
 --
 --       prod_ai = 'EMPAGLIFLOZIN\METFORMIN HYDROCHLORIDE'
 --
---   Left at the default, MySQL silently ate that backslash across 344,323
+--   Left at the default, MySQL silently ate that backslash across 343,753
 --   drug rows, merging two ingredient names into one that does not exist.
+--   (An earlier note quoted 344,323 - that figure came from the corrupted
+--   first load. 343,753 is the verified count, taken from output/csv/drug.csv
+--   and confirmed against the reloaded table by section 5.7 below. Use it.)
 --   The 19,472 values containing the sequence \N were additionally at risk
 --   of being read as SQL NULL.
 --
