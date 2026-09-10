@@ -79,14 +79,37 @@
  * because they disagree with the label, and the program is built to report
  * them rather than smooth them over.
  *
- * Acute kidney injury (A4) is a labelled W&P on all four molecules and is
- * expected to come back PRR_BELOW_1 on all four. The mechanism is real -
+ * Acute kidney injury (A4) is a labelled W&P on all four molecules and
+ * comes back PRR_BELOW_1 on all four. The mechanism is real -
  * volume depletion from vomiting and diarrhoea - but this class attracts an
  * enormous volume of non-serious consumer reports, and that denominator
  * dilutes serious renal events below the class background. A disproportion-
  * ality method cannot see a risk that is common in the comparator too. The
  * INTERPRETATION column says this in words, and the gate is set at 6 of 8
  * so an honest negative does not have to be argued away.
+ *
+ * Reaching that verdict took one change after the first run. Eleven of A4's
+ * twelve pairs report below background, several emphatically - tirzepatide
+ * x 'Acute kidney injury' sits at PRR 0.24 on chi2 351. The twelfth,
+ * dulaglutide on the same PT, is PRR 1.16 on chi2 0.87. Under the original
+ * rule that pair counted as SUB_THRESHOLD, and because any single PT can
+ * set a molecule's verdict, it alone lifted the whole group to WEAK and had
+ * the table reporting 'labelled risk detected below the Evans threshold'.
+ *
+ * A PRR of 1.16 that cannot clear a chi-square of 4 is not weak evidence of
+ * a risk. It is no evidence in either direction, and letting it outrank
+ * eleven measured negatives inverted what the group actually shows.
+ * SUB_THRESHOLD therefore now requires PRR >= 1 AND chi2 >= &CHI2_THRESHOLD,
+ * and a pair that leans up on noise alone is NOT_SIGNIFICANT.
+ *
+ * The threshold is not invented for this purpose: chi2 >= 4 is the second
+ * of the three Evans criteria and is already &CHI2_THRESHOLD in
+ * 00_config.sas. The split moves exactly one group verdict - A4, from WEAK
+ * back to the PRR_BELOW_1 this section always argued it was. Of the ten
+ * sub-threshold pairs in the first run, five clear the chi-square
+ * comfortably (chi2 5.2 to 86.2) and stay WEAK; five do not (chi2 0.21 to
+ * 3.51) and reclassify. Gate 3 is untouched at 7 of 8, because none of the
+ * five sits on a molecule that was carrying its group.
  *
  * Suicidality (C1) runs the other way. The primary PT 'Suicidal ideation'
  * does NOT signal, which agrees with the regulators. But 'Depression
@@ -377,6 +400,13 @@ run;
   practice no reference PT here should ever be non-clinical - this is a
   safety net against a future edit adding, say, a procedure term.
 
+  SUB_THRESHOLD requires PRR >= 1 AND chi2 >= &CHI2_THRESHOLD. A pair that
+  leans up but cannot clear the chi-square is NOT_SIGNIFICANT, a separate
+  status, because PRR 1.16 on chi2 0.87 is not weak evidence of a risk - it
+  is no evidence either way, and the rollup in section 4 treats the two very
+  differently. See the header for what this cost before it was split out.
+  A missing chi2 lands in NOT_SIGNIFICANT, which is the conservative side.
+
   EBGM and EB05 are selected for context and are used in no decision here.
   See the header.
   --------------------------------------------------------------------------*/
@@ -417,7 +447,10 @@ proc sql;
                     when missing(s.a) or s.a = 0    then 'NOT_IN_DATA'
                     when s.a < r.min_n              then 'BELOW_MIN_N'
                     when s.signal_flag = 1          then 'DETECTED'
-                    when s.PRR >= 1                 then 'SUB_THRESHOLD'
+                    when s.PRR >= 1
+                     and s.PRR_CHI2 >= &CHI2_THRESHOLD
+                                                    then 'SUB_THRESHOLD'
+                    when s.PRR >= 1                 then 'NOT_SIGNIFICANT'
                     else                                 'PRR_BELOW_1'
                 end as detect_status length=15
                     label='Outcome for this reference PT on this molecule'
@@ -446,9 +479,19 @@ quit;
   DRUG_STATUS is first-match-wins down a severity ladder: any detected PT
   makes the group REPLICATED on that molecule, because a class effect found
   under 'Cholecystitis acute' has still been found. Below that, WEAK means
-  the direction is right but the Evans threshold was not cleared, and
-  PRR_BELOW_1 means the method actively points the other way - the honest
-  negative, kept distinct from WEAK so A4 cannot be read as a near miss.
+  the direction is right and statistically distinguishable from background
+  but the PRR threshold was not cleared; PRR_BELOW_1 means the method
+  actively points the other way - the honest negative; and NOT_SIGNIFICANT
+  sits between them for a pair that leans up on noise alone.
+
+  NOT_SIGNIFICANT ranks BELOW PRR_BELOW_1 on purpose. A molecule with one PT
+  reporting well under background and another wobbling just over 1 is better
+  described by the first: PRR 0.24 on chi2 351 is a measurement, PRR 1.16 on
+  chi2 0.87 is an absence of one, and the stronger statement should win.
+
+  Any rung of this ladder can be reached by a SINGLE PT, which is what makes
+  the chi-square split in section 3b matter rather than being a refinement.
+  See the header.
 
   BEST_A is the largest case count among detected PTs and BEST_PRR the
   largest PRR among them. They are independent maxima and need not describe
@@ -472,6 +515,8 @@ proc sql;
                     label='PRR >= 1 but below Evans',
                 sum(detect_status = 'PRR_BELOW_1')   as n_prr_below_1
                     label='PRR below 1 - reported less than background',
+                sum(detect_status = 'NOT_SIGNIFICANT') as n_not_significant
+                    label='PRR >= 1 but chi-square below threshold',
                 sum(detect_status = 'NOT_IN_DATA')   as n_not_in_data
                     label='No reports of this PT for this molecule',
                 sum(detect_status = 'BELOW_MIN_N')   as n_below_min_n
@@ -488,6 +533,7 @@ proc sql;
                     when calculated n_detected      > 0 then 'REPLICATED'
                     when calculated n_sub_threshold > 0 then 'WEAK'
                     when calculated n_prr_below_1   > 0 then 'PRR_BELOW_1'
+                    when calculated n_not_significant > 0 then 'NOT_SIGNIFICANT'
                     when calculated n_not_in_data = calculated n_pts_tested
                                                         then 'NOT_IN_DATA'
                     else                                     'BELOW_MIN_N'
@@ -533,6 +579,8 @@ proc sql;
                     label='Molecules detected below the Evans threshold',
                 sum(drug_status = 'PRR_BELOW_1') as n_drugs_prr_below_1
                     label='Molecules reporting below background',
+                sum(drug_status = 'NOT_SIGNIFICANT') as n_drugs_not_significant
+                    label='Molecules where nothing reached significance',
 
                 max(best_PRR) as best_PRR format=8.2
                     label='Highest PRR among detected PTs, any molecule',
@@ -543,6 +591,8 @@ proc sql;
                     when sum(drug_status = 'REPLICATED')  > 0 then 'REPLICATED'
                     when sum(drug_status = 'WEAK')        > 0 then 'WEAK'
                     when sum(drug_status = 'PRR_BELOW_1') > 0 then 'PRR_BELOW_1'
+                    when sum(drug_status = 'NOT_SIGNIFICANT') > 0
+                                                              then 'NOT_SIGNIFICANT'
                     else                                          'NOT_FOUND'
                 end as group_status length=15
                     label='Verdict for this group',
@@ -556,6 +606,8 @@ proc sql;
                                 then 'Labelled risk detected below the Evans threshold'
                             when calculated group_status = 'PRR_BELOW_1'
                                 then 'Labelled risk not detected by disproportionality - see discussion'
+                            when calculated group_status = 'NOT_SIGNIFICANT'
+                                then 'Labelled risk not distinguishable from the reporting background'
                             else 'Not enough data to test'
                         end
                     when category = 'C' then
@@ -612,6 +664,7 @@ proc sql;
              drug_status     label='Verdict',
              n_detected      label='Det'   format=comma4.,
              n_sub_threshold label='Sub'   format=comma4.,
+             n_not_significant label='NotSig' format=comma6.,
              n_prr_below_1   label='PRR<1' format=comma5.,
              n_not_in_data   label='NoData' format=comma6.,
              best_PRR        label='Best PRR',
@@ -633,7 +686,7 @@ proc sql;
              a             label='Cases' format=comma8.,
              PRR           label='PRR'   format=8.2
     from     work.validation_detail
-    where    detect_status in ('SUB_THRESHOLD', 'PRR_BELOW_1')
+    where    detect_status in ('SUB_THRESHOLD', 'NOT_SIGNIFICANT', 'PRR_BELOW_1')
     order by category, signal_id, drug_label, PRR desc;
 quit;
 title2;
