@@ -1,0 +1,13 @@
+category,signal_id,signal_group,source,category_note,n_drugs_tested,n_drugs_replicated,n_drugs_weak,n_drugs_prr_below_1,best_PRR,best_a,group_status,interpretation
+A,1,Thyroid C-cell tumors,Boxed warning (all GLP-1 RAs) - rodent C-cell carcinogenicity,"Category B - boxed warning rests on rodent carcinogenicity, not human reports. Low counts expected.",4,4,0,0,31.43,34,REPLICATED,Method confirmed a labelled risk
+A,2,Pancreatitis,W&P (all GLP-1 RAs) - trials and post-marketing,,4,4,0,0,9.00,555,REPLICATED,Method confirmed a labelled risk
+A,3,Gallbladder disease,W&P (all GLP-1 RAs) - cholelithiasis and cholecystitis in trials,,4,4,0,0,102.28,429,REPLICATED,Method confirmed a labelled risk
+A,4,Acute kidney injury,W&P (all GLP-1 RAs) - volume depletion mechanism,,4,0,1,3,,,WEAK,Labelled risk detected below the Evans threshold
+A,5,Hypoglycaemia,W&P (all GLP-1 RAs) - with insulin secretagogues,,4,3,1,0,2.41,276,REPLICATED,Method confirmed a labelled risk
+A,6,Diabetic retinopathy,W&P (SEMA / TIRZ / DULA) - SUSTAIN-6 rapid improvement,,4,4,0,0,11.76,30,REPLICATED,Method confirmed a labelled risk
+A,7,Ileus / GI obstruction,Post-marketing - FDA SEMA label update Sep 2023,,4,4,0,0,44.34,635,REPLICATED,Method confirmed a labelled risk
+A,8,Gastroparesis / delayed emptying,W&P severe gastroparesis (SEMA / TIRZ) - delayed emptying,,4,4,0,0,478.04,"2,081",REPLICATED,Method confirmed a labelled risk
+C,9,Suicidal ideation / behaviour,Investigated and closed - EMA PRAC Apr 2024 / FDA Jan 2026 no link,,3,2,1,0,4.71,33,REPLICATED,"CAUTION - method flags a closed investigation, review as a false positive"
+D,10,NAION,EMA PRAC Jun 2025 - NAION a very rare side effect of semaglutide,,3,3,0,0,99.95,625,REPLICATED,Method detected a newly recognised safety signal
+D,11,Pulmonary aspiration,FDA Nov 2024 - added to W&P for all GLP-1 RAs,,3,1,1,1,2.97,8,REPLICATED,Method detected a newly recognised safety signal
+D,12,Alopecia,TIRZ post-marketing hair loss - present by the Sep 2025 label,,2,1,1,0,3.13,"1,651",REPLICATED,Method detected a newly recognised safety signal
