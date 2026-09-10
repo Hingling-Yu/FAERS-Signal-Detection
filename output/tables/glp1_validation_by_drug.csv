@@ -1,44 +1,44 @@
-category,signal_id,signal_group,drug_label,source,category_note,n_pts_tested,n_detected,n_sub_threshold,n_prr_below_1,n_not_in_data,n_below_min_n,best_PRR,best_a,drug_status
-A,1,Thyroid C-cell tumors,DULAGLUTIDE,Boxed warning (all GLP-1 RAs) - rodent C-cell carcinogenicity,"Category B - boxed warning rests on rodent carcinogenicity, not human reports. Low counts expected.",4,1,0,0,3,0,4.72,6,REPLICATED
-A,1,Thyroid C-cell tumors,LIRAGLUTIDE,Boxed warning (all GLP-1 RAs) - rodent C-cell carcinogenicity,"Category B - boxed warning rests on rodent carcinogenicity, not human reports. Low counts expected.",4,1,0,0,1,2,13.15,7,REPLICATED
-A,1,Thyroid C-cell tumors,SEMAGLUTIDE,Boxed warning (all GLP-1 RAs) - rodent C-cell carcinogenicity,"Category B - boxed warning rests on rodent carcinogenicity, not human reports. Low counts expected.",5,4,0,0,1,0,31.43,23,REPLICATED
-A,1,Thyroid C-cell tumors,TIRZEPATIDE,Boxed warning (all GLP-1 RAs) - rodent C-cell carcinogenicity,"Category B - boxed warning rests on rodent carcinogenicity, not human reports. Low counts expected.",6,4,1,0,0,1,18.24,34,REPLICATED
-A,2,Pancreatitis,DULAGLUTIDE,W&P (all GLP-1 RAs) - trials and post-marketing,,4,4,0,0,0,0,8.97,54,REPLICATED
-A,2,Pancreatitis,LIRAGLUTIDE,W&P (all GLP-1 RAs) - trials and post-marketing,,2,1,1,0,0,0,6.40,25,REPLICATED
-A,2,Pancreatitis,SEMAGLUTIDE,W&P (all GLP-1 RAs) - trials and post-marketing,,5,5,0,0,0,0,9.00,456,REPLICATED
-A,2,Pancreatitis,TIRZEPATIDE,W&P (all GLP-1 RAs) - trials and post-marketing,,2,2,0,0,0,0,3.86,555,REPLICATED
-A,3,Gallbladder disease,DULAGLUTIDE,W&P (all GLP-1 RAs) - cholelithiasis and cholecystitis in trials,,6,6,0,0,0,0,102.28,57,REPLICATED
-A,3,Gallbladder disease,LIRAGLUTIDE,W&P (all GLP-1 RAs) - cholelithiasis and cholecystitis in trials,,4,4,0,0,0,0,54.99,33,REPLICATED
-A,3,Gallbladder disease,SEMAGLUTIDE,W&P (all GLP-1 RAs) - cholelithiasis and cholecystitis in trials,,6,6,0,0,0,0,44.89,333,REPLICATED
-A,3,Gallbladder disease,TIRZEPATIDE,W&P (all GLP-1 RAs) - cholelithiasis and cholecystitis in trials,,6,6,0,0,0,0,4.84,429,REPLICATED
-A,4,Acute kidney injury,DULAGLUTIDE,W&P (all GLP-1 RAs) - volume depletion mechanism,,3,0,1,2,0,0,,,WEAK
-A,4,Acute kidney injury,LIRAGLUTIDE,W&P (all GLP-1 RAs) - volume depletion mechanism,,3,0,0,2,1,0,,,PRR_BELOW_1
-A,4,Acute kidney injury,SEMAGLUTIDE,W&P (all GLP-1 RAs) - volume depletion mechanism,,3,0,0,3,0,0,,,PRR_BELOW_1
-A,4,Acute kidney injury,TIRZEPATIDE,W&P (all GLP-1 RAs) - volume depletion mechanism,,3,0,0,3,0,0,,,PRR_BELOW_1
-A,5,Hypoglycaemia,DULAGLUTIDE,W&P (all GLP-1 RAs) - with insulin secretagogues,,1,1,0,0,0,0,2.16,17,REPLICATED
-A,5,Hypoglycaemia,LIRAGLUTIDE,W&P (all GLP-1 RAs) - with insulin secretagogues,,1,1,0,0,0,0,2.41,8,REPLICATED
-A,5,Hypoglycaemia,SEMAGLUTIDE,W&P (all GLP-1 RAs) - with insulin secretagogues,,1,0,1,0,0,0,,,WEAK
-A,5,Hypoglycaemia,TIRZEPATIDE,W&P (all GLP-1 RAs) - with insulin secretagogues,,1,1,0,0,0,0,2.11,276,REPLICATED
-A,6,Diabetic retinopathy,DULAGLUTIDE,W&P (SEMA / TIRZ / DULA) - SUSTAIN-6 rapid improvement,,1,1,0,0,0,0,6.61,4,REPLICATED
-A,6,Diabetic retinopathy,LIRAGLUTIDE,W&P (SEMA / TIRZ / DULA) - SUSTAIN-6 rapid improvement,,1,1,0,0,0,0,11.76,3,REPLICATED
-A,6,Diabetic retinopathy,SEMAGLUTIDE,W&P (SEMA / TIRZ / DULA) - SUSTAIN-6 rapid improvement,,1,1,0,0,0,0,6.19,30,REPLICATED
-A,6,Diabetic retinopathy,TIRZEPATIDE,W&P (SEMA / TIRZ / DULA) - SUSTAIN-6 rapid improvement,,1,1,0,0,0,0,2.62,26,REPLICATED
-A,7,Ileus / GI obstruction,DULAGLUTIDE,Post-marketing - FDA SEMA label update Sep 2023,,4,3,1,0,0,0,44.34,185,REPLICATED
-A,7,Ileus / GI obstruction,LIRAGLUTIDE,Post-marketing - FDA SEMA label update Sep 2023,,2,2,0,0,0,0,8.48,18,REPLICATED
-A,7,Ileus / GI obstruction,SEMAGLUTIDE,Post-marketing - FDA SEMA label update Sep 2023,,4,4,0,0,0,0,16.82,635,REPLICATED
-A,7,Ileus / GI obstruction,TIRZEPATIDE,Post-marketing - FDA SEMA label update Sep 2023,,3,2,1,0,0,0,2.98,161,REPLICATED
-A,8,Gastroparesis / delayed emptying,DULAGLUTIDE,W&P severe gastroparesis (SEMA / TIRZ) - delayed emptying,,4,3,0,0,1,0,478.04,944,REPLICATED
-A,8,Gastroparesis / delayed emptying,LIRAGLUTIDE,W&P severe gastroparesis (SEMA / TIRZ) - delayed emptying,,1,1,0,0,0,0,35.59,178,REPLICATED
-A,8,Gastroparesis / delayed emptying,SEMAGLUTIDE,W&P severe gastroparesis (SEMA / TIRZ) - delayed emptying,,3,1,0,1,1,0,33.43,"2,081",REPLICATED
-A,8,Gastroparesis / delayed emptying,TIRZEPATIDE,W&P severe gastroparesis (SEMA / TIRZ) - delayed emptying,,3,2,0,0,0,1,9.29,803,REPLICATED
-C,9,Suicidal ideation / behaviour,LIRAGLUTIDE,Investigated and closed - EMA PRAC Apr 2024 / FDA Jan 2026 no link,,4,0,1,1,0,2,,,WEAK
-C,9,Suicidal ideation / behaviour,SEMAGLUTIDE,Investigated and closed - EMA PRAC Apr 2024 / FDA Jan 2026 no link,,6,2,1,3,0,0,2.74,13,REPLICATED
-C,9,Suicidal ideation / behaviour,TIRZEPATIDE,Investigated and closed - EMA PRAC Apr 2024 / FDA Jan 2026 no link,,6,1,0,5,0,0,4.71,33,REPLICATED
-D,10,NAION,DULAGLUTIDE,EMA PRAC Jun 2025 - NAION a very rare side effect of semaglutide,,1,1,0,0,0,0,8.29,19,REPLICATED
-D,10,NAION,SEMAGLUTIDE,EMA PRAC Jun 2025 - NAION a very rare side effect of semaglutide,,1,1,0,0,0,0,99.95,625,REPLICATED
-D,10,NAION,TIRZEPATIDE,EMA PRAC Jun 2025 - NAION a very rare side effect of semaglutide,,1,1,0,0,0,0,2.77,104,REPLICATED
-D,11,Pulmonary aspiration,DULAGLUTIDE,FDA Nov 2024 - added to W&P for all GLP-1 RAs,,1,1,0,0,0,0,2.97,8,REPLICATED
-D,11,Pulmonary aspiration,SEMAGLUTIDE,FDA Nov 2024 - added to W&P for all GLP-1 RAs,,2,0,1,1,0,0,,,WEAK
-D,11,Pulmonary aspiration,TIRZEPATIDE,FDA Nov 2024 - added to W&P for all GLP-1 RAs,,2,0,0,2,0,0,,,PRR_BELOW_1
-D,12,Alopecia,SEMAGLUTIDE,TIRZ post-marketing hair loss - present by the Sep 2025 label,,1,0,1,0,0,0,,,WEAK
-D,12,Alopecia,TIRZEPATIDE,TIRZ post-marketing hair loss - present by the Sep 2025 label,,1,1,0,0,0,0,3.13,"1,651",REPLICATED
+category,signal_id,signal_group,drug_label,source,category_note,n_pts_tested,n_detected,n_sub_threshold,n_prr_below_1,n_not_significant,n_not_in_data,n_below_min_n,best_PRR,best_a,drug_status
+A,1,Thyroid C-cell tumors,DULAGLUTIDE,Boxed warning (all GLP-1 RAs) - rodent C-cell carcinogenicity,"Category B - boxed warning rests on rodent carcinogenicity, not human reports. Low counts expected.",4,1,0,0,0,3,0,4.72,6,REPLICATED
+A,1,Thyroid C-cell tumors,LIRAGLUTIDE,Boxed warning (all GLP-1 RAs) - rodent C-cell carcinogenicity,"Category B - boxed warning rests on rodent carcinogenicity, not human reports. Low counts expected.",4,1,0,0,0,1,2,13.15,7,REPLICATED
+A,1,Thyroid C-cell tumors,SEMAGLUTIDE,Boxed warning (all GLP-1 RAs) - rodent C-cell carcinogenicity,"Category B - boxed warning rests on rodent carcinogenicity, not human reports. Low counts expected.",5,4,0,0,0,1,0,31.43,23,REPLICATED
+A,1,Thyroid C-cell tumors,TIRZEPATIDE,Boxed warning (all GLP-1 RAs) - rodent C-cell carcinogenicity,"Category B - boxed warning rests on rodent carcinogenicity, not human reports. Low counts expected.",6,4,1,0,0,0,1,18.24,34,REPLICATED
+A,2,Pancreatitis,DULAGLUTIDE,W&P (all GLP-1 RAs) - trials and post-marketing,,4,4,0,0,0,0,0,8.97,54,REPLICATED
+A,2,Pancreatitis,LIRAGLUTIDE,W&P (all GLP-1 RAs) - trials and post-marketing,,2,1,0,0,1,0,0,6.40,25,REPLICATED
+A,2,Pancreatitis,SEMAGLUTIDE,W&P (all GLP-1 RAs) - trials and post-marketing,,5,5,0,0,0,0,0,9.00,456,REPLICATED
+A,2,Pancreatitis,TIRZEPATIDE,W&P (all GLP-1 RAs) - trials and post-marketing,,2,2,0,0,0,0,0,3.86,555,REPLICATED
+A,3,Gallbladder disease,DULAGLUTIDE,W&P (all GLP-1 RAs) - cholelithiasis and cholecystitis in trials,,6,6,0,0,0,0,0,102.28,57,REPLICATED
+A,3,Gallbladder disease,LIRAGLUTIDE,W&P (all GLP-1 RAs) - cholelithiasis and cholecystitis in trials,,4,4,0,0,0,0,0,54.99,33,REPLICATED
+A,3,Gallbladder disease,SEMAGLUTIDE,W&P (all GLP-1 RAs) - cholelithiasis and cholecystitis in trials,,6,6,0,0,0,0,0,44.89,333,REPLICATED
+A,3,Gallbladder disease,TIRZEPATIDE,W&P (all GLP-1 RAs) - cholelithiasis and cholecystitis in trials,,6,6,0,0,0,0,0,4.84,429,REPLICATED
+A,4,Acute kidney injury,DULAGLUTIDE,W&P (all GLP-1 RAs) - volume depletion mechanism,,3,0,0,2,1,0,0,,,PRR_BELOW_1
+A,4,Acute kidney injury,LIRAGLUTIDE,W&P (all GLP-1 RAs) - volume depletion mechanism,,3,0,0,2,0,1,0,,,PRR_BELOW_1
+A,4,Acute kidney injury,SEMAGLUTIDE,W&P (all GLP-1 RAs) - volume depletion mechanism,,3,0,0,3,0,0,0,,,PRR_BELOW_1
+A,4,Acute kidney injury,TIRZEPATIDE,W&P (all GLP-1 RAs) - volume depletion mechanism,,3,0,0,3,0,0,0,,,PRR_BELOW_1
+A,5,Hypoglycaemia,DULAGLUTIDE,W&P (all GLP-1 RAs) - with insulin secretagogues,,1,1,0,0,0,0,0,2.16,17,REPLICATED
+A,5,Hypoglycaemia,LIRAGLUTIDE,W&P (all GLP-1 RAs) - with insulin secretagogues,,1,1,0,0,0,0,0,2.41,8,REPLICATED
+A,5,Hypoglycaemia,SEMAGLUTIDE,W&P (all GLP-1 RAs) - with insulin secretagogues,,1,0,1,0,0,0,0,,,WEAK
+A,5,Hypoglycaemia,TIRZEPATIDE,W&P (all GLP-1 RAs) - with insulin secretagogues,,1,1,0,0,0,0,0,2.11,276,REPLICATED
+A,6,Diabetic retinopathy,DULAGLUTIDE,W&P (SEMA / TIRZ / DULA) - SUSTAIN-6 rapid improvement,,1,1,0,0,0,0,0,6.61,4,REPLICATED
+A,6,Diabetic retinopathy,LIRAGLUTIDE,W&P (SEMA / TIRZ / DULA) - SUSTAIN-6 rapid improvement,,1,1,0,0,0,0,0,11.76,3,REPLICATED
+A,6,Diabetic retinopathy,SEMAGLUTIDE,W&P (SEMA / TIRZ / DULA) - SUSTAIN-6 rapid improvement,,1,1,0,0,0,0,0,6.19,30,REPLICATED
+A,6,Diabetic retinopathy,TIRZEPATIDE,W&P (SEMA / TIRZ / DULA) - SUSTAIN-6 rapid improvement,,1,1,0,0,0,0,0,2.62,26,REPLICATED
+A,7,Ileus / GI obstruction,DULAGLUTIDE,Post-marketing - FDA SEMA label update Sep 2023,,4,3,0,0,1,0,0,44.34,185,REPLICATED
+A,7,Ileus / GI obstruction,LIRAGLUTIDE,Post-marketing - FDA SEMA label update Sep 2023,,2,2,0,0,0,0,0,8.48,18,REPLICATED
+A,7,Ileus / GI obstruction,SEMAGLUTIDE,Post-marketing - FDA SEMA label update Sep 2023,,4,4,0,0,0,0,0,16.82,635,REPLICATED
+A,7,Ileus / GI obstruction,TIRZEPATIDE,Post-marketing - FDA SEMA label update Sep 2023,,3,2,1,0,0,0,0,2.98,161,REPLICATED
+A,8,Gastroparesis / delayed emptying,DULAGLUTIDE,W&P severe gastroparesis (SEMA / TIRZ) - delayed emptying,,4,3,0,0,0,1,0,478.04,944,REPLICATED
+A,8,Gastroparesis / delayed emptying,LIRAGLUTIDE,W&P severe gastroparesis (SEMA / TIRZ) - delayed emptying,,1,1,0,0,0,0,0,35.59,178,REPLICATED
+A,8,Gastroparesis / delayed emptying,SEMAGLUTIDE,W&P severe gastroparesis (SEMA / TIRZ) - delayed emptying,,3,1,0,1,0,1,0,33.43,"2,081",REPLICATED
+A,8,Gastroparesis / delayed emptying,TIRZEPATIDE,W&P severe gastroparesis (SEMA / TIRZ) - delayed emptying,,3,2,0,0,0,0,1,9.29,803,REPLICATED
+C,9,Suicidal ideation / behaviour,LIRAGLUTIDE,Investigated and closed - EMA PRAC Apr 2024 / FDA Jan 2026 no link,,4,0,0,1,1,0,2,,,PRR_BELOW_1
+C,9,Suicidal ideation / behaviour,SEMAGLUTIDE,Investigated and closed - EMA PRAC Apr 2024 / FDA Jan 2026 no link,,6,2,1,3,0,0,0,2.74,13,REPLICATED
+C,9,Suicidal ideation / behaviour,TIRZEPATIDE,Investigated and closed - EMA PRAC Apr 2024 / FDA Jan 2026 no link,,6,1,0,5,0,0,0,4.71,33,REPLICATED
+D,10,NAION,DULAGLUTIDE,EMA PRAC Jun 2025 - NAION a very rare side effect of semaglutide,,1,1,0,0,0,0,0,8.29,19,REPLICATED
+D,10,NAION,SEMAGLUTIDE,EMA PRAC Jun 2025 - NAION a very rare side effect of semaglutide,,1,1,0,0,0,0,0,99.95,625,REPLICATED
+D,10,NAION,TIRZEPATIDE,EMA PRAC Jun 2025 - NAION a very rare side effect of semaglutide,,1,1,0,0,0,0,0,2.77,104,REPLICATED
+D,11,Pulmonary aspiration,DULAGLUTIDE,FDA Nov 2024 - added to W&P for all GLP-1 RAs,,1,1,0,0,0,0,0,2.97,8,REPLICATED
+D,11,Pulmonary aspiration,SEMAGLUTIDE,FDA Nov 2024 - added to W&P for all GLP-1 RAs,,2,0,1,1,0,0,0,,,WEAK
+D,11,Pulmonary aspiration,TIRZEPATIDE,FDA Nov 2024 - added to W&P for all GLP-1 RAs,,2,0,0,2,0,0,0,,,PRR_BELOW_1
+D,12,Alopecia,SEMAGLUTIDE,TIRZ post-marketing hair loss - present by the Sep 2025 label,,1,0,0,0,1,0,0,,,NOT_SIGNIFICANT
+D,12,Alopecia,TIRZEPATIDE,TIRZ post-marketing hair loss - present by the Sep 2025 label,,1,1,0,0,0,0,0,3.13,"1,651",REPLICATED
