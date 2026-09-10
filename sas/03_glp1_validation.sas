@@ -778,9 +778,12 @@ data _null_;
                cats('[', category, signal_id, ']'),
                strip(signal_group), '-', strip(group_status));
 
+    /* CAT, not CATS. CATS strips every argument, including the spaces in
+       the literals below, and the line comes out as '(best PRR478.04on
+       a=2,081)'. The PUT results are stripped individually instead. */
     if not missing(best_PRR) then
-        msg = catx(' ', msg, cats('(best PRR ', put(best_PRR, 8.2),
-                                  ' on a=', put(best_a, comma8.), ')'));
+        msg = catx(' ', msg, cat('(best PRR ', strip(put(best_PRR, 8.2)),
+                                 ' on a=', strip(put(best_a, comma8.)), ')'));
 
     msg = catx(' ', msg, cats('[', strip(interpretation), ']'));
     putlog msg;
