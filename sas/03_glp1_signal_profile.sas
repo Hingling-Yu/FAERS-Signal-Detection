@@ -12,6 +12,7 @@
  *           WORK.REF_GLP1_DRUG    class definition, from 00_config.sas
  *
  * Outputs:  SIGNAL.GLP1_SIGNALS                     GLP-1 pairs, all measures
+ *           SIGNAL.GLP1_TOP_SIGNALS                 top 20 per molecule
  *           &OUT_TABLES/glp1_signals.csv            the same, for Tableau
  *           &OUT_TABLES/glp1_top_signals.csv        top 20 per molecule
  *           &OUT_QC/qc_glp1_signal_profile.csv      QC metrics
@@ -715,6 +716,25 @@ data signal.glp1_signals (compress=yes
     length drug_label $20 generation $12 prod_ai $500 pt $100
            single_ingredient 8 pt_category $25;
     set work.glp1_signals;
+run;
+
+/* The ranked table is a deliverable in its own right and is saved, not only
+   exported. It used to live in WORK and reach the outside world as a CSV
+   alone, which meant it ceased to exist the moment the SAS session ended -
+   and 03_glp1_report.sas, which reads it to build Table 2, found nothing
+   there and reported the table empty.
+
+   Re-deriving the ranking in the report program would have put the same
+   three filters and the same sort in two places, to drift apart the first
+   time either changes. The ranking is computed here, so it is stored here.
+
+   No COMPRESS: at 20 rows per molecule the compression header costs more
+   than it saves, and SAS says so in a NOTE every run. */
+data signal.glp1_top_signals
+        (label='GLP-1 top 20 signals per molecule, ranked by PRR');
+    length drug_label $20 generation $12 prod_ai $500 pt $100
+           single_ingredient 8 pt_category $25;
+    set work.glp1_top_signals;
 run;
 
 proc export data=work.glp1_signals
