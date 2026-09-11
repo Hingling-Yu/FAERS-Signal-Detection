@@ -1,0 +1,11 @@
+table_name,csv_file,n_rows,expect_rows,note
+report_cohort_summary,report_cohort_summary.csv,80,Yes,Empty only if CLEAN.GLP1_CASES is missing.
+report_top_signals,report_top_signals.csv,80,Yes,Empty only if no top signal is a clinical AE.
+report_drug_compare,report_drug_compare.csv,20,No,May be empty - no divergent pair where either molecule signals.
+report_gen_compare,report_gen_compare.csv,20,No,May be empty - no divergent pair where either generation signals.
+report_four_drug,report_four_drug.csv,155,Yes,Empty only if nothing signals on 2 or more molecules.
+report_subgroup_age,report_subgroup_highlights.csv,20,No,May be empty - all age patterns flagged SELECTION BIAS.
+report_time_trends,report_time_trends.csv,525,No,May be empty - every trend Inconsistent.
+report_validation,report_validation.csv,12,Yes,Expect 12 rows - the reference set is fixed.
+report_executive_summary,report_executive_summary.csv,22,Yes,One row per metric.
+report_crown_jewels,report_crown_jewels.csv,6,Yes,"Six curated findings, numbers derived at run time."
