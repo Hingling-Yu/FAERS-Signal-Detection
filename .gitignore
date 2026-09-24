@@ -62,6 +62,12 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
+# --- Tableau working files -------------------------------------------------
+# Auto-save recovery files. Tableau writes a new one every time the workbook
+# is open and deletes them on a clean exit, so they are pure session noise.
+# The .twb itself is XML and belongs in the repo - it is not ignored here.
+.~*.twbr
+
 # --- OS cruft --------------------------------------------------------------
 .DS_Store
 Thumbs.db
