@@ -65,8 +65,13 @@ __pycache__/
 # --- Tableau working files -------------------------------------------------
 # Auto-save recovery files. Tableau writes a new one every time the workbook
 # is open and deletes them on a clean exit, so they are pure session noise.
-# The .twb itself is XML and belongs in the repo - it is not ignored here.
 .~*.twbr
+
+# The workbook itself is published to Tableau Public, which is the canonical
+# copy and the only one a reader can interact with. A .twb in the repo would
+# be a second version to keep in step with it for no reader benefit, so the
+# dashboard is documented here by DASHBOARD_SPEC.md and linked from README.
+dashboard/*.twb
 
 # --- OS cruft --------------------------------------------------------------
 .DS_Store
