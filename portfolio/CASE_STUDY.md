@@ -37,17 +37,17 @@ The pipeline uses a 3-gate validation system. No downstream analysis runs until 
 **Gate 3 (GLP-1 application):** A time-indexed reference set of 12 signal groups across 3 categories. Each group carries the date and the regulatory body that acted on it, and the expected result is set from that date.
 
 - **Category A, 8 labeled risks in force throughout the window.** 7 of 8 replicated (87.5%, threshold 6 of 8). The one miss is acute kidney injury, which reports below PRR 1 on all four drugs. Diabetic retinopathy replicated on 4 of 4 drugs.
-- **Category C, 1 risk investigated and closed: suicidality, not detected for semaglutide.** Semaglutide suicidal ideation scores PRR 1.43 on 176 cases and does not clear Evans, which agrees with EMA PRAC (Apr 2024) and FDA (Jan 2026). Two rarer terms in the group do clear Evans on small counts (depression suicidal on tirzepatide, PRR 4.71 on 33 cases; self-injurious ideation on semaglutide, PRR 2.02 on 13 cases), so the group is flagged Caution and reported as a false positive.
+- **Category C, 1 risk investigated and closed: suicidal ideation, below threshold for semaglutide.** Semaglutide suicidal ideation scores PRR 1.43 on 176 cases and does not clear Evans, which agrees with EMA PRAC (Apr 2024) and FDA (Jan 2026). Two rarer terms in the group do clear Evans on small counts, in three drug-PT combinations: depression suicidal on semaglutide (PRR 2.74 on 11 cases) and on tirzepatide (PRR 4.71 on 33 cases), and self-injurious ideation on semaglutide (PRR 2.02 on 13 cases). The group is flagged Caution and reported as a false positive.
 - **Category D, 3 signals newly recognized inside the window.** NAION, pulmonary aspiration and alopecia: 3 of 3 detected.
 
 ![Validation storypoint](screenshots/sp6_validation.png)
-*Storypoint 6 shows the Gate 2 and Gate 3 results, the 12-group validation scorecard, and the three findings discussed below.*
+*Storypoint 6 shows the Gate 2 and Gate 3 results, the 12-group validation scorecard, and the three findings on NAION, suicidality and gastroparesis.*
 
 ## Selected Findings
 
 ### 1. NAION: detected outside the target list
 
-The engine flagged optic ischaemic neuropathy for semaglutide at PRR 100.0 on 625 cases, and the same PT also signals on dulaglutide and tirzepatide. NAION was not in the pre-specified target list. EMA PRAC concluded NAION is a very rare side effect of semaglutide in June 2025, inside this data window. Because each reference group is scored against what regulators knew on its own date, a signal recognized in June 2025 is tested against the state of knowledge before that date.
+The engine flagged optic ischaemic neuropathy for semaglutide at PRR 100.0 on 625 cases, and the same PT also signals on dulaglutide and tirzepatide. NAION was not in the pre-specified target list. EMA PRAC concluded NAION is a very rare side effect of semaglutide in June 2025. NAION is in Category D, where the expected result is "detected" because the regulatory action falls inside the data window.
 
 ### 2. Injection-Site Separation Between the Two Newer Drugs
 
@@ -75,7 +75,7 @@ Among elderly semaglutide users (≥ 65), PRR for increased appetite is 2.4x hig
 
 **EBGM requires careful fitting.** I implemented the DuMouchel empirical Bayes model, found the untruncated likelihood inflated the prior mean to 17x the reference value, and demoted it to a ranking aid. Fixing it properly requires a zero-truncated refit and validation against openEBGM.
 
-**Evans criteria are sensitive on small counts.** In the suicidal ideation group (Category C), the primary term scores below threshold on semaglutide (PRR 1.43 on 176 cases), while two rarer terms in the same group clear Evans on 13 and 33 cases. Evans sets its case-count floor at a ≥ 3, so a rare term with a handful of reports can pass it. Any presentation of results needs to state that.
+**Evans criteria are sensitive on small counts.** In the suicidal ideation group (Category C), the primary term scores below threshold on semaglutide (PRR 1.43 on 176 cases), while two rarer terms in the same group clear Evans in three drug-PT combinations, on 11, 13 and 33 cases. Evans sets its case-count floor at a ≥ 3, so a rare term with a handful of reports can pass it. Any presentation of results needs to state that.
 
 **Coverage bias matters.** Semaglutide quarterly volumes vary from 2,726 to 15,137 cases. Many "emerging" signals are inferred from thin early quarters instead of measured against a confirmed sub-threshold baseline. The trend classification separates the two types, and a consumer of the results needs to know which type a given signal is.
 
