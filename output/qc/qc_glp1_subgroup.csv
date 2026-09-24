@@ -24,10 +24,10 @@ Sex / SEMAGLUTIDE / PT,2199,Stratified pairs with a >= 3
 Sex / TIRZEPATIDE / GROUP,16,Stratified pairs with a >= 3
 Sex / TIRZEPATIDE / PT,1973,Stratified pairs with a >= 3
 Age-dependent signals (all),424,Elderly/Youth concentrated or elevated
-CLINICAL_AE,421,The deliverable - Table 2
-MEDICATION_ERROR,3,"Off-label use and dosing errors - Table 3, informational"
+CLINICAL_AE,385,The deliverable - Table 2
+Non-clinical (all categories),39,"Use, dosing, device, quality, efficacy - Table 3"
 at GROUP grain,7,Class effects - never additive with PT rows
-CLINICAL_AE flagged SELECTION BIAS,216,Event age coverage more than 15 points from its baseline
-CLINICAL_AE with coverage OK,205,The defensible subset - read these first
-Elderly-concentrated / Youth-concentrated,367,elderly 195 - youth 172
-Elderly-elevated / Youth-elevated,54,elderly 23 - youth 31
+CLINICAL_AE flagged SELECTION BIAS,200,Event age coverage more than 15 points from its baseline
+CLINICAL_AE with coverage OK,185,The defensible subset - read these first
+Elderly-concentrated / Youth-concentrated,338,elderly 170 - youth 168
+Elderly-elevated / Youth-elevated,47,elderly 21 - youth 26

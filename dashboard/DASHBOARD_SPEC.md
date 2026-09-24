@@ -1,10 +1,10 @@
 # FAERS GLP-1 Signal Detection — Tableau Dashboard Spec
 
-**Version:** 3.0  
-**Date:** 2026-09-16  
-**Audience:** RWE / Drug Safety Analyst (single dashboard, single persona)  
-**Platform:** Tableau Desktop → Tableau Public  
-**Data window:** FAERS 2025Q3–2026Q2 (1.53M reports, 111,673 GLP-1 subset)  
+**Version:** 3.0
+**Date:** 2026-09-16
+**Audience:** RWE / Drug Safety Analyst (single dashboard, single persona)
+**Platform:** Tableau Desktop → Tableau Public
+**Data window:** FAERS 2025Q3–2026Q2 (1.53M reports, 111,673 GLP-1 subset)
 **Delivery format:** Tableau Story (6 storypoints), each storypoint is an interactive dashboard sheet
 
 ---
@@ -124,45 +124,52 @@ Replace the default Story navigator strip with custom navigation:
 
 ---
 
-## Color Palette (placeholder — finalize after initial build)
+## Color Palette (FINAL — locked 2026-09-23)
 
-### Drug Colors
-| Drug | Hex | Usage |
+Rule: one color = one meaning across all 6 storypoints. Text on dark fills = white; on light fills = #333333.
+
+### Drug Colors (newer = teal/mint, comparator = grey-green)
+| Drug | Hex | Label text |
 |---|---|---|
-| SEMAGLUTIDE | #0F766E | Dark teal — newer generation |
-| TIRZEPATIDE | #2DD4BF | Medium teal — newer generation |
-| DULAGLUTIDE | #64748B | Dark slate — comparator |
-| LIRAGLUTIDE | #94A3B8 | Light slate — comparator |
+| SEMAGLUTIDE | #1A7878 | white |
+| TIRZEPATIDE | #6EB3A7 | #333333 |
+| DULAGLUTIDE | #52736A | white |
+| LIRAGLUTIDE | #A2B9AD | #333333 |
 
-### PRR Intensity (sequential, single-hue, log-scaled)
+Derived uses (no new colors): Generation (SP1 age) newer = #1A7878, comparator = #52736A. SP3 direction: SEMA higher = #1A7878, TIRZ higher = #6EB3A7.
+
+### Status & Accent
+| Role | Hex | Where |
+|---|---|---|
+| Replicated | #7FB08A | SP6 |
+| Caution (false positive) | #F5C889 | SP6 |
+| Youth-elevated (Youth ↑) | #F5C889 | SP4 slope |
+| Elderly-elevated (Elderly ↑) | #DD7560 | SP4 slope (coral — redder than heatmap #E87C52 so it separates from Youth ↑ amber) |
+| Not Detected | #BDBDBD | SP6 (pure grey, never slate) |
+
+Status/accent chosen 2026-09-23 (replaces #649552 / #E49832 / #C85C42 — too green/dark, not clinical). Text on all status fills = #333333. #F5C889 is light (~1.5:1 on white): SP4 lines ≥ 3 px, add direct end labels.
+
+### PRR Intensity (SP3 heatmap, sequential brick)
 | Range | Hex |
 |---|---|
-| PRR < 2 | #E2E8F0 |
-| PRR 2–5 | #99F6E4 |
-| PRR 5–20 | #14B8A6 |
-| PRR 20–100 | #0F766E |
-| PRR > 100 | #134E4A |
+| PRR < 2 | #E5E5E5 |
+| PRR 2–5 | #F9C8B2 |
+| PRR 5–20 | #E87C52 |
+| PRR 20–100 | #A83C32 |
 
-### Validation Status
-| Status | Color | Backup |
-|---|---|---|
-| REPLICATED | #16A34A | ✅ icon |
-| PRR_BELOW_1 | #94A3B8 | ⬜ icon |
-| CAUTION | #F59E0B | ⚠️ icon |
-
-### Signal Direction (SP3 dumbbell)
-| Direction | Hex |
+### Neutrals
+| Role | Hex |
 |---|---|
-| SEMA higher | #0F766E |
-| TIRZ higher | #F59E0B |
-| Similar | #94A3B8 |
+| Text | #333333 / #555555 / #666666 / #888888 / #999999 |
+| Gridlines, dividers | #E5E5E5 |
+| SP2 background bands (PRR 2–5 / 5–20 / ≥20) | keep current cool-grey bands (unlabelled) |
 
 ---
 
 ## Storypoint 1: GLP-1 Cohort Overview
 
-**Analytical question:** What population is under surveillance, and how is it distributed?  
-**Interview time:** 30 seconds  
+**Analytical question:** What population is under surveillance, and how is it distributed?
+**Interview time:** 30 seconds
 **Proves:** "I can define and characterize a pharmacoepidemiologic cohort"
 
 ### Layout
@@ -243,8 +250,8 @@ Same values as v2. Apply SellerOps styling:
 
 ## Storypoint 2: Signal Screening
 
-**Analytical question:** What does the engine's output look like, and which drug–event pairs merit investigation?  
-**Interview time:** 45 seconds  
+**Analytical question:** What does the engine's output look like, and which drug–event pairs merit investigation?
+**Interview time:** 45 seconds
 **Proves:** "I can build a signal detection engine and interpret its output"
 
 ### Layout
@@ -310,8 +317,8 @@ Click any dot → all dots of that drug highlight, others dim to 20% opacity.
 
 ## Storypoint 3: Comparative Signal Profile
 
-**Analytical question:** Which signals are class effects and which are molecule-specific?  
-**Interview time:** 60 seconds  
+**Analytical question:** Which signals are class effects and which are molecule-specific?
+**Interview time:** 60 seconds
 **Proves:** "I can do comparative safety profiling, not just single-drug analysis"
 
 ### Layout
@@ -400,8 +407,8 @@ Click either drug's dot → highlights all of that drug's dots on the current vi
 
 ## Storypoint 4: Stratified Analysis (Age-Dependent Signals)
 
-**Analytical question:** Does age modify signal strength, and in which direction?  
-**Interview time:** 45 seconds  
+**Analytical question:** Does age modify signal strength, and in which direction?
+**Interview time:** 45 seconds
 **Proves:** "I can stratify and identify effect modification"
 
 ### Layout
@@ -465,7 +472,7 @@ Hover over any point on a slope line → tooltip shows:
 
 ### Curated Signals (8–10 lines, unchanged from v2)
 
-**Elderly-elevated:** Weight increased, Pancreatitis necrotising, Drug dose titration not performed, Hyperphagia  
+**Elderly-elevated:** Weight increased, Pancreatitis necrotising, Drug dose titration not performed, Hyperphagia
 **Youth-concentrated:** Biliary colic, Gallbladder group, Thyroid dysfunction group
 
 ### Coverage Bias Annotation (mandatory, unchanged)
@@ -476,8 +483,8 @@ Hover over any point on a slope line → tooltip shows:
 
 ## Storypoint 5: Temporal Signal Tracking
 
-**Analytical question:** Are signals stable, emerging, or declining across the 4-quarter window?  
-**Interview time:** 60 seconds  
+**Analytical question:** Are signals stable, emerging, or declining across the 4-quarter window?
+**Interview time:** 60 seconds
 **Proves:** "I can track temporal signal dynamics"
 
 ### Layout
@@ -571,8 +578,8 @@ Hover over any point on the bump chart → tooltip shows:
 
 ## Storypoint 6: Validation & Crown Jewels
 
-**Analytical question:** How do you know the engine works — and what did validation itself reveal?  
-**Interview time:** 45 seconds  
+**Analytical question:** How do you know the engine works — and what did validation itself reveal?
+**Interview time:** 45 seconds
 **Proves:** "I validated before trusting, and validation itself produced findings"
 
 ### Layout

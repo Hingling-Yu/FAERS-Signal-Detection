@@ -12,6 +12,7 @@
  *           CLEAN.DRUG           full FAERS, for the universe
  *           CLEAN.REAC           full FAERS, for subgroup c, d and N
  *           WORK.REF_PT_GROUP    class-effect groups, 00_ref_pt_group.sas
+ *           %pt_category()       PT classifier, 00_ref_pt_filter.sas
  *
  * Outputs:  SIGNAL.GLP1_SUBGROUP_AGE / _SEX / _COUNTRY
  *           SIGNAL.GLP1_AGE_DEPENDENT
@@ -55,7 +56,7 @@
  *                     the spec, and the SORT in section 6.
  *
  * -----------------------------------------------------------------------
- * CLINICAL AE vs MEDICATION ERROR
+ * CLINICAL AE vs EVERYTHING ELSE
  * -----------------------------------------------------------------------
  * Off-label weight-loss use is concentrated in younger patients, so PTs like
  * 'Off label use' (3,863 cases) and 'Product use in unapproved indication'
@@ -64,9 +65,14 @@
  * because the age skew is a real finding about how these drugs are used -
  * just not a finding about their safety.
  *
- * The PT list lives in section 2 of this program rather than in
- * 00_config.sas: no other step uses it, and a list that travels with its
- * only consumer cannot drift out of step with it.
+ * The classification is %pt_category() from 00_ref_pt_filter.sas, shared with
+ * 03_glp1_signal_profile.sas. Step 4 used to carry a private twelve-PT list
+ * that recognised medication errors only; the shared classifier separates
+ * seven non-clinical categories - MED_ERROR, DOSING_ERROR, DEVICE,
+ * PRODUCT_QUALITY, LACK_OF_EFFICACY, PROCEDURE_NOISE and
+ * LITIGATION_FINGERPRINT - so Table 2 and Table 3 here split exactly where
+ * the Step 3 top-signal tables split. Anything that is not CLINICAL_AE is
+ * held out of the headline table; nothing is deleted.
  *
  * -----------------------------------------------------------------------
  * TWO GRAINS, AS IN STEP 3
@@ -90,6 +96,7 @@
    it. Every include after this line derives from &SAS_PATH. */
 %include "/home/u64291357/mydata/sas/00_config.sas";
 %include "&SAS_PATH./00_ref_pt_group.sas";
+%include "&SAS_PATH./00_ref_pt_filter.sas";
 %include "&SAS_PATH./macros/calc_prr.sas";
 %include "&SAS_PATH./macros/calc_ror.sas";
 
@@ -164,7 +171,7 @@ title "Phase 3 Step 4 - GLP-1 Subgroup Analysis";
 
 
 /*==========================================================================
-  2. ANALYSIS UNIVERSE, PT GROUP MAP, MEDICATION ERROR LIST
+  2. ANALYSIS UNIVERSE AND PT GROUP MAP
   ==========================================================================*/
 
 /* Universe - identical to Steps 2 and 3. Built as two DISTINCT sets and
@@ -225,33 +232,7 @@ proc datasets library=work nolist;
     delete _all_pt;
 quit;
 
-/* Medication error and product-use PTs. Kept here rather than in
-   00_config.sas because Step 4 is the only consumer: a list that travels
-   with its only consumer cannot drift out of step with it.
-
-   The FIND catch-all in section 6 covers every PT beginning 'Medication
-   error', so those variants are deliberately not enumerated. */
-data work.ref_med_error_pts;
-    length pt $100;
-    infile datalines truncover;
-    input pt $char100.;
-    datalines;
-Off label use
-Product use in unapproved indication
-Incorrect dose administered
-Accidental underdose
-Drug use for unknown indication
-Intentional product misuse
-Product dose omission
-Wrong technique in product usage process
-Accidental overdose
-Intentional overdose
-Prescribed overdose
-Product administered to patient of inappropriate age
-;
-run;
-
-%_stamp(Section 2 - universe / PT group map / medication error list built.)
+%_stamp(Section 2 - universe and PT group map built.)
 
 
 /*==========================================================================
@@ -613,20 +594,19 @@ data work.age_classified;
                        'Elderly-elevated', 'Youth-elevated');
 run;
 
-/* --- 6c. Clinical AE or medication error -------------------------------
-   All eight class-effect groups are clinical by construction, so the
-   classification only has to decide at PT level. */
+/* --- 6c. Clinical AE or non-clinical -----------------------------------
+   %pt_category() from 00_ref_pt_filter.sas, the same classifier Step 3 ranks
+   with. GROUP rows need no special case: EVENT holds the PT_GROUP key -
+   PANCREATITIS, GALLBLADDER, GI_COMMON and the rest - and none of those
+   strings matches a non-clinical rule, so all eight groups fall through to
+   CLINICAL_AE exactly as they should.
+
+   Classify here and filter downstream: PROC SQL will not accept a CALCULATED
+   column in the same query's WHERE clause. */
 proc sql;
     create table work.age_dep_classified as
         select      a.*,
-                    case when a.event_type = 'GROUP' then 'CLINICAL_AE'
-                         when exists (select 1 from work.ref_med_error_pts as me
-                                      where upcase(strip(a.event)) = upcase(strip(me.pt)))
-                              then 'MEDICATION_ERROR'
-                         when find(a.event, 'Medication error', 'i') = 1
-                              then 'MEDICATION_ERROR'
-                         else 'CLINICAL_AE'
-                    end as pt_category length=20
+                    %pt_category(a.event) as pt_category length=25
         from        work.age_classified as a;
 quit;
 
@@ -722,7 +702,7 @@ quit;
 data signal.glp1_age_dependent (compress=yes
         label='GLP-1 age-dependent signals with coverage and selection flags');
     length drug_label $20 event_type $8 event $100
-           age_pattern $24 pt_category $20 coverage_flag $16;
+           age_pattern $24 pt_category $25 coverage_flag $16;
     set work.age_dependent;
 run;
 
@@ -756,13 +736,15 @@ proc report data=signal.glp1_age_dependent nowd;
 run;
 title3; title4;
 
-title2 'Table 3: Age-dependent MEDICATION ERROR PTs - informational';
+title2 'Table 3: Age-dependent NON-CLINICAL PTs - informational';
 title3 'Off-label weight-loss use skews young by construction. Reported so the';
 title4 'skew is on the record, and separated so it cannot crowd out Table 2.';
 proc report data=signal.glp1_age_dependent nowd;
-    where pt_category = 'MEDICATION_ERROR';
-    columns drug_label event age_pattern a_young prr_young a_elderly prr_elderly;
+    where pt_category ne 'CLINICAL_AE';
+    columns drug_label pt_category event age_pattern
+            a_young prr_young a_elderly prr_elderly;
     define drug_label  / order   'Molecule';
+    define pt_category / display 'Category';
     define event       / display 'Event';
     define age_pattern / display 'Pattern';
     define a_young     / display 'N <=45'   format=comma8.;
@@ -806,7 +788,7 @@ proc sql noprint;
     select count(*) into :N_DEP_CLIN trimmed
         from signal.glp1_age_dependent where pt_category = 'CLINICAL_AE';
     select count(*) into :N_DEP_MED trimmed
-        from signal.glp1_age_dependent where pt_category = 'MEDICATION_ERROR';
+        from signal.glp1_age_dependent where pt_category ne 'CLINICAL_AE';
     select count(*) into :N_DEP_BIAS trimmed
         from signal.glp1_age_dependent
         where pt_category = 'CLINICAL_AE' and coverage_flag = 'SELECTION BIAS';
@@ -906,9 +888,9 @@ data work.qc_subgroup;
     value  = &N_DEP_CLIN;
     note   = 'The deliverable - Table 2';                                   output;
 
-    metric = '  MEDICATION_ERROR';
+    metric = '  Non-clinical (all categories)';
     value  = &N_DEP_MED;
-    note   = 'Off-label use and dosing errors - Table 3, informational';    output;
+    note   = 'Use, dosing, device, quality, efficacy - Table 3';            output;
 
     metric = '  at GROUP grain';
     value  = &N_DEP_GRP;
