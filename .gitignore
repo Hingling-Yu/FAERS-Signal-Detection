@@ -78,9 +78,15 @@ __pycache__/
 
 # The workbook itself is published to Tableau Public, which is the canonical
 # copy and the only one a reader can interact with. A .twb in the repo would
-# be a second version to keep in step with it for no reader benefit, so the
-# dashboard is documented here by DASHBOARD_SPEC.md and linked from README.
+# be a second version to keep in step with it for no reader benefit. The
+# dashboard is documented by README and portfolio/CASE_STUDY.md; the live
+# version is on Tableau Public.
 dashboard/*.twb
+
+# DASHBOARD_SPEC.md is the planning document behind that build: layout
+# drafts, chart-by-chart decisions and revision history. Same category as
+# docs/ below - process, not product.
+dashboard/DASHBOARD_SPEC.md
 
 # --- OS cruft --------------------------------------------------------------
 .DS_Store
