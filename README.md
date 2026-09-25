@@ -129,7 +129,8 @@ Drug comparison runs at three layers: semaglutide vs. tirzepatide (head-to-head)
 ├── sql/
 │   ├── 01_ddl.sql                 # Database, users, 9 tables, indexes
 │   ├── 02_load.sql                # LOAD DATA + Gate 1 verification
-│   └── 03_queries.sql             # Views, materialized cohort, 20 analytical queries
+│   ├── 03_queries.sql             # Views, materialized cohort, 20 analytical queries
+│   └── 04_reporter_type.sql       # Read-only reporter occupation check, 6 cohorts
 ├── python/
 │   └── 01_verify_raw_widths.py    # Independent row count + field width check
 ├── portfolio/                     # Case study and dashboard screenshots

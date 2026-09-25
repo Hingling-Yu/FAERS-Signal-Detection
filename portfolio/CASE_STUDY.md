@@ -96,7 +96,7 @@ Among elderly semaglutide users (≥ 65), PRR for increased appetite is 2.4x hig
 | Evans signals | 127,196 flagged database-wide; 811 in the GLP-1 cohort, 704 clinical adverse events |
 | Validation | 8/8 positive, 0/6 false positive (Evans), Gate 3 at 87.5% |
 | Time trends | 321 emerging or accelerating signals (264 emerging, 57 accelerating, clinical adverse events only) |
-| Programs | 14 SAS + 3 SQL + 1 Python |
+| Programs | 14 SAS + 4 SAS macros + 4 SQL + 1 Python |
 | Dashboard | 6-storypoint Tableau Story, published on Tableau Public |
 | Tools | SAS (SAS OnDemand for Academics), MySQL, Python, Tableau |
 
