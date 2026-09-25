@@ -1,0 +1,23 @@
+section,metric,value
+Cohort,Total GLP-1 cases (distinct primaryid),111673
+Cohort,Molecules monitored,4
+Cohort,Cases with a usable reported age,68643
+Cohort,Reaction terms reported (case x molecule x PT),270548
+Signals,Molecule x event pairs evaluated,9630
+Signals,"Evans-flagged signals (N>=3, PRR>=2, chi2>=4)",811
+Signals,"Evans-flagged, clinical AE only",704
+Signals,Evans-flagged and ROR-confirmed,798
+Signals,"Evans-flagged, held back as non-clinical PT",107
+Validation,Category A groups (labelled risks) total,8
+Validation,Category A groups replicated,7
+Validation,"Gate 3 status (1 = PASS, needs 6 of 8)",1
+Validation,Category C groups (closed by regulators) total,1
+Validation,Category C groups the method stayed quiet on,0
+Validation,Category D groups (newly recognised) total,3
+Validation,Category D groups detected,3
+Trends,Emerging signals (clinical AE),264
+Trends,Accelerating signals (clinical AE),57
+Trends,Declining signals (clinical AE),170
+Trends,"Inconsistent, excluded from Table 5 (clinical AE)",2017
+Comparison,Events signalling on all 4 molecules (class effects),27
+Comparison,Events signalling on exactly 1 molecule,298

@@ -121,7 +121,7 @@ Drug comparison runs at three layers: semaglutide vs. tirzepatide (head-to-head)
 │   ├── 03_glp1_subgroup.sas       # Age/sex/country stratification
 │   ├── 03_glp1_time_trend.sas     # Quarter-by-quarter PRR with trend classification
 │   ├── 03_glp1_validation.sas     # Gate 3: 12-group time-indexed reference set
-│   ├── 03_glp1_report.sas         # 11 report tables + 6 key findings
+│   ├── 03_glp1_report.sas         # 9 report tables + executive summary + 6 key findings
 │   └── macros/
 │       ├── import_faers_table.sas  # Parameterized import with DQ handling
 │       ├── calc_prr.sas            # PRR + 95% CI + chi-square
@@ -136,7 +136,7 @@ Drug comparison runs at three layers: semaglutide vs. tirzepatide (head-to-head)
 ├── dashboard/                     # Tableau workbook spec
 ├── docs/                          # Specs, review notes, FDA reference material
 └── output/
-    ├── tables/                    # All analysis CSVs + HTML report
+    ├── tables/                    # 10 report CSVs + Gate 2 control results
     ├── csv/                       # CLEAN dataset exports for MySQL
     └── qc/                        # Field width and dedup QC outputs
 ```
