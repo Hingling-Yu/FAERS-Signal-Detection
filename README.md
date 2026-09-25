@@ -13,7 +13,7 @@ End-to-end pharmacovigilance analysis of 1.5 million FDA adverse event reports (
 - **9,630 GLP-1 drug × event pairs screened**, 811 Evans-flagged, 704 of them clinical adverse events
 - **Validation: 8/8 positive controls detected, 0/6 Evans false positives** on negative controls
 - **Gate 3 passed at 87.5%** (7 of 8 known label signals replicated, threshold 6 of 8)
-- **NAION: detected outside the target list.** Semaglutide NAION (PT: optic ischaemic neuropathy) detected at PRR 100.0 on 625 cases. NAION was not in the pre-specified target list, and EMA PRAC concluded it is a very rare side effect of semaglutide in June 2025, inside the data window.
+- **NAION: detected outside the target list.** Semaglutide NAION (PT: optic ischaemic neuropathy) detected at PRR 100.0 on 625 cases. NAION was not in the pre-specified target list, and EMA PRAC concluded it is a very rare side effect of semaglutide on June 6, 2025, just before the data window opens on July 1, 2025.
 - **321 emerging or accelerating signals** (264 emerging, 57 accelerating, clinical adverse events only) identified through quarter-by-quarter PRR tracking
 - **27 events signal on all 4 drugs**: 23 preferred terms and 4 signal groups. The dashboard reports 4 class effects because its heatmap works at the signal-group layer: gallbladder disease, gastroparesis, pancreatitis and thyroid neoplasm, 4 of the 7 groups evaluated.
 
@@ -87,7 +87,7 @@ A time-indexed reference set of 12 signal groups across 3 categories. Each group
 
 - **Category A (8 groups):** Known label signals (boxed warnings, W&P), in force throughout the data window. Expected: replicated. Result: 7 of 8 replicated. The one miss is acute kidney injury, which reports below PRR 1 on all four drugs. Diabetic retinopathy replicated on 4 of 4 drugs.
 - **Category C (1 group):** Investigated and closed by regulators (suicidal ideation / behaviour). Expected: not replicated. Result: semaglutide suicidal ideation scores PRR 1.43 on 176 cases and does not clear Evans, which agrees with EMA PRAC (Apr 2024) and FDA (Jan 2026). Two rarer terms in the group do clear Evans on small counts, in three drug-PT combinations: depression suicidal on semaglutide (PRR 2.74 on 11 cases) and on tirzepatide (PRR 4.71 on 33 cases), and self-injurious ideation on semaglutide (PRR 2.02 on 13 cases). The group is flagged Caution and reported as a false positive.
-- **Category D (3 groups):** Newly recognized within the data window (NAION, pulmonary aspiration, alopecia). Expected: detected. Result: 3 of 3 detected.
+- **Category D (3 groups):** Recognized during or just before the data window (NAION, pulmonary aspiration, alopecia). Expected: detected. Result: 3 of 3 detected.
 
 ### EBGM Demote Decision
 

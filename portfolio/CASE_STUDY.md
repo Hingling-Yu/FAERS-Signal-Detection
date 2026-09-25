@@ -38,7 +38,7 @@ The pipeline uses a 3-gate validation system. No downstream analysis runs until 
 
 - **Category A, 8 labeled risks in force throughout the window.** 7 of 8 replicated (87.5%, threshold 6 of 8). The one miss is acute kidney injury, which reports below PRR 1 on all four drugs. Diabetic retinopathy replicated on 4 of 4 drugs.
 - **Category C, 1 risk investigated and closed: suicidal ideation, below threshold for semaglutide.** Semaglutide suicidal ideation scores PRR 1.43 on 176 cases and does not clear Evans, which agrees with EMA PRAC (Apr 2024) and FDA (Jan 2026). Two rarer terms in the group do clear Evans on small counts, in three drug-PT combinations: depression suicidal on semaglutide (PRR 2.74 on 11 cases) and on tirzepatide (PRR 4.71 on 33 cases), and self-injurious ideation on semaglutide (PRR 2.02 on 13 cases). The group is flagged Caution and reported as a false positive.
-- **Category D, 3 signals newly recognized inside the window.** NAION, pulmonary aspiration and alopecia: 3 of 3 detected.
+- **Category D, 3 signals recognized during or just before the window.** NAION, pulmonary aspiration and alopecia: 3 of 3 detected.
 
 ![Validation storypoint](screenshots/sp6_validation.png)
 *Storypoint 6 shows the Gate 2 and Gate 3 results, the 12-group validation scorecard, and the three findings on NAION, suicidality and gastroparesis.*
@@ -47,7 +47,7 @@ The pipeline uses a 3-gate validation system. No downstream analysis runs until 
 
 ### 1. NAION: detected outside the target list
 
-The engine flagged optic ischaemic neuropathy for semaglutide at PRR 100.0 on 625 cases, and the same PT also signals on dulaglutide and tirzepatide. NAION was not in the pre-specified target list. EMA PRAC concluded NAION is a very rare side effect of semaglutide in June 2025. NAION is in Category D, where the expected result is "detected" because the regulatory action falls inside the data window.
+The engine flagged optic ischaemic neuropathy for semaglutide at PRR 100.0 on 625 cases, and the same PT also signals on dulaglutide and tirzepatide. NAION was not in the pre-specified target list. EMA PRAC concluded NAION is a very rare side effect of semaglutide on June 6, 2025. NAION is in Category D, where the expected result is "detected" because the regulatory action falls just before the data window, which opens on July 1, 2025.
 
 ### 2. Injection-Site Separation Between the Two Newer Drugs
 
