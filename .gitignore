@@ -90,6 +90,15 @@ dashboard/*.twb
 # docs/ below - process, not product.
 dashboard/DASHBOARD_SPEC.md
 
+# --- Portfolio launch assets -----------------------------------------------
+# Marketing material built from the finished analysis for posting elsewhere:
+# the LinkedIn carousel PDF and anything alongside it. The rest of portfolio/
+# stays in the repo because CASE_STUDY.md and the dashboard screenshots are
+# what a reader of this project needs. These are for distributing the work,
+# so they are regenerated whenever the post is rewritten and would only go
+# stale here.
+portfolio/linkedin/
+
 # --- OS cruft --------------------------------------------------------------
 .DS_Store
 Thumbs.db
