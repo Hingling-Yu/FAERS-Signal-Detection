@@ -162,6 +162,10 @@ Drug comparison runs at three layers: semaglutide vs. tirzepatide (head-to-head)
 
 FDA FAERS Quarterly Data Extract (ASCII), 4 quarters: 2025 Q3 through 2026 Q2. Downloaded from [FDA FAERS](https://fda.gov/drugs/questions-and-answers-fdas-adverse-event-reporting-system-faers/fda-adverse-event-reporting-system-faers-latest-quarterly-data-files). Raw data not included in this repository.
 
+## How this was built
+
+Built in collaboration with Claude (Anthropic). Claude Code (Opus 5) in VS Code wrote the SAS, SQL and Python from specs I designed. A separate Claude session helped draft specs and reviewed methods, including the independent review that led to the EBGM demotion. I made the analysis design decisions, ran every SAS program on SAS OnDemand for Academics, and signed off each validation gate.
+
 ## Author
 
 Hingling Yu
