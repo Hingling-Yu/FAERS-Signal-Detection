@@ -15,8 +15,8 @@
  * Requires: Nothing. This macro is deliberately free of libname / path
  *           dependencies so it can be unit-tested without 00_config.sas.
  *
- * Author:   Hingling Yu (design, specification, execution, review)
- *           Code drafted with AI coding assistant (Claude)
+ * Author : Hingling Yu (design and execution)
+ * Code   : written with Claude Code (Opus 5). See README, "How this was built".
  * Created:  2026-09-03
  *****************************************************************************/
 

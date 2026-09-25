@@ -112,8 +112,8 @@
  * kept as they are and labelled 'Reaction (PT)' or 'Event' accordingly;
  * nothing upstream is renamed to make this program tidier.
  *
- * Author:   Hingling Yu (design, specification, execution, review)
- *           Code drafted with AI coding assistant (Claude)
+ * Author : Hingling Yu (design and execution)
+ * Code   : written with Claude Code (Opus 5). See README, "How this was built".
  * Created:  2026-09-10
  *****************************************************************************/
 

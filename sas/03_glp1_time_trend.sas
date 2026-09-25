@@ -123,8 +123,8 @@
  * Step 7, computed from SIGNAL.GLP1_TIME_TREND, once the PT-level shapes are
  * settled.
  *
- * Author:   Hingling Yu (design, specification, execution, review)
- *           Code drafted with AI coding assistant (Claude)
+ * Author : Hingling Yu (design and execution)
+ * Code   : written with Claude Code (Opus 5). See README, "How this was built".
  * Created:  2026-09-08
  *****************************************************************************/
 

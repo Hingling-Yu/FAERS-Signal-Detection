@@ -47,8 +47,8 @@
  * that are absent from ALL_SIGNALS (NOT EVAL) are acceptable - they simply
  * had too few reports to be evaluated, which is not a specificity failure.
  *
- * Author:   Hingling Yu (design, specification, execution, review)
- *           Code drafted with AI coding assistant (Claude)
+ * Author : Hingling Yu (design and execution)
+ * Code   : written with Claude Code (Opus 5). See README, "How this was built".
  * Created:  2026-09-04
  *****************************************************************************/
 

@@ -103,8 +103,8 @@
  * counted above. For SEMAGLUTIDE the arithmetic is 35,705 cohort cases
  * minus 54 compounded-variant cases; the QC table shows the residual.
  *
- * Author:   Hingling Yu (design, specification, execution, review)
- *           Code drafted with AI coding assistant (Claude)
+ * Author : Hingling Yu (design and execution)
+ * Code   : written with Claude Code (Opus 5). See README, "How this was built".
  * Created:  2026-09-05
  *****************************************************************************/
 

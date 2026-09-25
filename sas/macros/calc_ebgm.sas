@@ -53,8 +53,8 @@
  *           with an Application to the FDA Spontaneous Reporting System."
  *           The American Statistician 1999;53(3):177-190.
  *
- * Author:   Hingling Yu (design, specification, execution, review)
- *           Code drafted with AI coding assistant (Claude)
+ * Author : Hingling Yu (design and execution)
+ * Code   : written with Claude Code (Opus 5). See README, "How this was built".
  * Created:  2026-09-03
  *****************************************************************************/
 

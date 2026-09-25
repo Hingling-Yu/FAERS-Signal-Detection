@@ -27,8 +27,8 @@
  *
  * Runtime:  roughly 15-30 minutes on SAS ODA for all 32 files.
  *
- * Author:   Hingling Yu (design, specification, execution, review)
- *           Code drafted with AI coding assistant (Claude)
+ * Author : Hingling Yu (design and execution)
+ * Code   : written with Claude Code (Opus 5). See README, "How this was built".
  * Created:  2026-09-02
  *****************************************************************************/
 
