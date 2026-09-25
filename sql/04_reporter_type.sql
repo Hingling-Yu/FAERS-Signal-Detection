@@ -24,13 +24,57 @@
 --   Read 1 against 3 against 5 against 6, and the excess (if any) is
 --   attributable to the event rather than to the drug or to FAERS at large.
 --
---   Cohorts 1 and 2 are additionally cut by quarter. A US MDL consolidating
---   these claims was established in December 2025, mid-2025Q4; if litigation
---   is driving the reports, the lawyer share should step up across that
---   boundary. December sits in the last month of 2025Q4, so that quarter is
---   labelled separately rather than folded into either side - calling it
---   "pre" would hide the first month of MDL-driven filing, and calling it
---   "post" would credit the MDL with two quarters it had not yet reached.
+--   Every cohort is additionally cut by quarter, so that a quarterly lawyer
+--   share can be read against the same quarter's baseline.
+--
+-- The two MDLs, and why the period label is per cohort
+-- ---------------------------------------------------------------------------
+--   These two events are consolidated in two SEPARATE federal MDLs, filed
+--   almost two years apart, both in E.D. Pa. Dates and scope are taken from
+--   the JPML transfer orders themselves, not from secondary coverage:
+--
+--     MDL 3094  In re: GLP-1 RAs Products Liability Litigation
+--               Transfer order filed 2024-02-02 (Doc. 145).
+--               Scope: plaintiffs who "suffered gastroparesis, ileus,
+--               intestinal obstruction or pseudo-obstruction, or other
+--               gastrointestinal injury". Named products include Trulicity
+--               (dulaglutide) and Mounjaro (tirzepatide) alongside the Novo
+--               Nordisk semaglutide products. Eli Lilly moved to be excluded
+--               and the Panel refused - "the claims against Eli Lilly alone
+--               are sufficiently numerous and complex that they qualify for
+--               centralized treatment" - so dulaglutide GI claims are inside
+--               this MDL, not outside it.
+--               https://www.jpml.uscourts.gov/sites/jpml/files/MDL-3094-Transfer_Order-1-24.pdf
+--
+--     MDL 3163  In re: GLP-1 RAs Non-Arteritic Anterior Ischemic Optic
+--               Neuropathy (NAION) Products Liability Litigation
+--               Transfer order filed 2025-12-15 (Doc. 49).
+--               https://www.jpml.uscourts.gov/sites/jpml/files/MDL-3163-Transfer_Order-12-25.pdf
+--
+--   A single period label cannot serve both, and applying the NAION date to
+--   the gastroparesis cohort would be simply wrong, so period_vs_mdl is
+--   assigned per cohort by the cohort_mdl CTE below:
+--
+--     cohort 1  MDL 3163 governs. 2025-12-15 falls in 2025Q4, sixteen days
+--               before the quarter ends, so that quarter is labelled as the
+--               boundary rather than folded into either side: calling it
+--               "pre" would hide the first filings, calling it "post" would
+--               credit the MDL with a quarter it barely reached.
+--     cohort 2  MDL 3094 governs, and it predates this data window by about
+--               eighteen months. ALL FOUR QUARTERS ARE POST-MDL. There is no
+--               pre-MDL dulaglutide baseline anywhere in this extract.
+--     cohorts   Event-unrestricted, so both dockets apply to different cases
+--     3, 4, 5   inside the same cohort and no single pre/post line exists.
+--               Labelled 'n/a - multiple MDLs apply' rather than guessed at.
+--     cohort 6  Whole-warehouse baseline, no MDL relevance.
+--
+--   The consequence for cohort 2 is a real limit on what these numbers can
+--   answer, and it is worth stating plainly: because the window opens well
+--   after MDL 3094 was filed, this data CANNOT test whether the MDL caused
+--   the lawyer dominance in dulaglutide gastroparesis reports. It can only
+--   show that the dominance is present in every quarter observed. Reading the
+--   2025Q3 figure as a pre-litigation baseline would be a straightforward
+--   error of fact.
 --
 -- What this file does NOT do
 -- ---------------------------------------------------------------------------
@@ -39,11 +83,15 @@
 --   It creates no views and no tables, so it can be re-run at any time
 --   without touching the warehouse or invalidating any SAS output.
 --
---   It also draws no causal conclusion. A high lawyer share is evidence of
---   stimulated reporting, not proof of it, and a low one does not clear a
---   signal - solicited reports can reach FDA through a consumer or a treating
---   physician and would be coded CN or MD. The number bounds one confounder;
---   it does not settle the question.
+--   It also draws no causal conclusion, and occp_cod = 'LW' is narrower than
+--   "litigation-related" in a way that governs how every number here can be
+--   read. LW marks the reports a lawyer submitted DIRECTLY to FDA - that is
+--   all it marks. An attorney-solicited report that reaches FDA through the
+--   claimant or their treating physician is coded CN or MD and is invisible
+--   to this field, as is any report routed through the manufacturer. So a
+--   high LW share is strong evidence of litigation-channel reporting, while a
+--   low one does not establish the absence of it: it bounds the directly
+--   attributable portion only. Neither direction settles causation.
 --
 -- occp_cod values, and the two that are absent
 -- ---------------------------------------------------------------------------
@@ -96,6 +144,77 @@
 --   keep in step: if either reference changes, this file has to be edited to
 --   match, and the PT lists below are the only place to edit.
 --
+-- Reconciliation - cohort 1 is 627 cases here and 625 in the SAS validation
+-- ---------------------------------------------------------------------------
+--   The difference is not a SQL-versus-SAS discrepancy. It is a documented
+--   difference between two SAS steps, and this file matches the one that is
+--   right for a reporter-mix question:
+--
+--     627   sql/04 (this file), and glp1_base_signals.csv from
+--           02_signal_engine, glp1_compare_sema_tirz.csv, glp1_age_dependent.csv
+--     625   glp1_validation_detail.csv from 03_glp1_validation only
+--
+--   Cause. 03_glp1_validation.sas joins its reference PTs to the signal table
+--   under SINGLE_INGREDIENT = 1. GLP1_SIGNALS is keyed on prod_ai, so
+--   'SEMAGLUTIDE' and 'PYRIDOXINE\SEMAGLUTIDE' are two rows both carrying
+--   drug_label SEMAGLUTIDE; without that restriction one reference PT would
+--   match several prod_ai rows and the group counts would double. The
+--   restriction is correct there and is explained in that file's own comments.
+--
+--   It is a whole-cohort restriction, not a NAION one: the same table reports
+--   n_drug = 35,651 against 35,705 in the base engine, and 35,705 - 35,651 =
+--   54 is exactly the count of semaglutide PS reports whose prod_ai is a
+--   backslash-joined combination product rather than the bare molecule.
+--
+--   The two NAION cases are those combination products - both compounded
+--   semaglutide-plus-B-vitamin, and both consumer-reported:
+--
+--     primaryid 258599151   2025Q3   CN   PYRIDOXINE\SEMAGLUTIDE
+--     primaryid 264407581   2026Q1   CN   CYANOCOBALAMIN\SEMAGLUTIDE
+--
+--   So it is neither a dedup artefact nor a PT-matching difference, and
+--   nothing here was tuned to make the numbers agree. This file deliberately
+--   keeps all 627: compounded semaglutide reaches patients through telehealth
+--   and compounding pharmacies rather than a prescription for a branded
+--   product, which is a reporting channel this analysis is specifically about,
+--   so dropping those cases would remove the very cases most likely to differ.
+--
+--   The choice is immaterial to every conclusion. On 625 the shares move by
+--   at most a quarter of a point - lawyer 1.91% -> 1.92%, consumer 25.84% ->
+--   25.60% - because 2 cases out of 627 cannot move a percentage. Anyone
+--   reconciling this CSV against glp1_validation_detail.csv should expect the
+--   2-case gap and read it as the single-ingredient restriction, not an error.
+--
+-- What the numbers came out as - stated at the limit of what LW supports
+-- ---------------------------------------------------------------------------
+--   Dulaglutide + gastroparesis, full window: 73.7% of cases were submitted
+--   directly by a lawyer, against 21.4% for dulaglutide across all events,
+--   1.3% for the GLP-1 class and 1.2% for FAERS at large. By quarter the share
+--   is 87.3 / 93.8 / 60.2 / 97.8 percent, which is 38x to 184x the same
+--   quarter's FAERS baseline throughout. Direct lawyer submission is the
+--   dominant reporting channel for this drug-event pair in every quarter
+--   observed. As set out above, all four quarters post-date MDL 3094, so these
+--   figures describe a litigation-saturated window rather than a change across
+--   the start of one.
+--
+--   Semaglutide + NAION, full window: 1.9% of cases (12 of 627) came directly
+--   from a lawyer, and 41.0% from a health professional, against 0.06% and
+--   16.9% respectively for semaglutide across all events. By quarter the
+--   lawyer share runs 0.00 / 0.90 / 3.57 / 2.08 percent, peaking at 3.8x the
+--   same quarter's FAERS baseline in 2026Q1 - the first full quarter after
+--   MDL 3163 - then falling to 0.8x, below baseline, in 2026Q2.
+--
+--   What that supports, precisely: few NAION reports were submitted directly
+--   by lawyers, and the health-professional share is more than twice that of
+--   semaglutide reports generally. What it does NOT support is a claim that
+--   the NAION signal is clinician-driven rather than litigation-driven. LW
+--   captures direct lawyer submissions only, so attorney-solicited reports
+--   filed by the claimant or their physician sit inside the CN and MD counts
+--   and cannot be separated out with this field. A low LW share bounds the
+--   directly attributable portion; it does not characterise the signal's
+--   origin. Separating those channels would need rpsr (report source) or the
+--   litigation-referral flags, which the FAERS public extract does not carry.
+--
 -- Prerequisites
 --   sql/01_ddl.sql, sql/02_load.sql and section 3 of sql/03_queries.sql
 --   (which materialises glp1_ps_case) have all been run.
@@ -141,7 +260,7 @@
 --   quarter. Comparing a cohort's 2026Q2 share with its own 2025Q3 share
 --   measures the extract as much as it measures the litigation.
 --
--- Output   output/tables/reporter_type_check.csv
+-- Output   output/tables/reporter_type_check.csv - 11 columns
 --          6 cohorts x 8 reporter categories                  =  48 rows
 --        + 6 cohorts x 4 quarters x 8 reporter categories      = 192 rows
 --                                                               --------
@@ -233,6 +352,19 @@ cohort_case AS (
     FROM   demo d
 ),
 
+-- Which MDL governs which cohort. See the header for the transfer orders this
+-- is taken from. has_period = 0 marks the cohorts where no single pre/post
+-- line exists, so that the quarterly block labels them 'n/a' instead of
+-- silently applying one MDL's date to cases belonging to the other.
+cohort_mdl AS (
+    SELECT 1 AS cohort_id, 'MDL 3163 - NAION, filed 2025-12-15'          AS mdl_docket, 1 AS has_period
+    UNION ALL SELECT 2, 'MDL 3094 - GI injuries, filed 2024-02-02',         1
+    UNION ALL SELECT 3, 'n/a - MDL 3094 and MDL 3163 both apply',           0
+    UNION ALL SELECT 4, 'n/a - MDL 3094 and MDL 3163 both apply',           0
+    UNION ALL SELECT 5, 'n/a - MDL 3094 and MDL 3163 both apply',           0
+    UNION ALL SELECT 6, 'n/a - whole-warehouse baseline',                   0
+),
+
 -- The cohort dimension, so that the cross join below can manufacture a row
 -- for every (cohort, reporter) pair including the empty ones.
 cohort_dim AS (
@@ -280,6 +412,7 @@ overall AS (
     SELECT d.cohort_id,
            d.cohort,
            'ALL QUARTERS'           AS slice,
+           m.mdl_docket,
            'all quarters'           AS period_vs_mdl,
            o.occp_cod,
            o.reporter_label,
@@ -291,6 +424,7 @@ overall AS (
            o.occp_ord
     FROM       cohort_dim   d
     CROSS JOIN occp_ref     o
+    JOIN       cohort_mdl   m ON m.cohort_id = d.cohort_id
     JOIN       cohort_total t ON t.cohort_id = d.cohort_id
     LEFT JOIN  counted_all  c ON c.cohort_id = d.cohort_id
                              AND c.occp_cod  = o.occp_cod
@@ -307,17 +441,31 @@ overall AS (
 --
 -- Quarters come from a fixed list for the same reason the reporter categories
 -- do: a quarter with no cases at all in a cohort should read 0, not vanish.
+-- Two period columns, because the two MDLs split these quarters differently:
+-- p_3163 for the NAION docket (filed 2025-12-15, inside 2025Q4) and p_3094 for
+-- the GI docket (filed 2024-02-02, before the window opens, so every quarter
+-- is post). cohort_mdl picks which one applies; neither is applied to a cohort
+-- where both dockets are in play.
 qtr_dim AS (
-    SELECT '2025Q3' AS quarter, 'pre-MDL' AS period_vs_mdl, 1 AS slice_ord
-    UNION ALL SELECT '2025Q4', 'MDL quarter (established Dec 2025)', 2
-    UNION ALL SELECT '2026Q1', 'post-MDL', 3
-    UNION ALL SELECT '2026Q2', 'post-MDL', 4
+    SELECT '2025Q3' AS quarter, 1 AS slice_ord,
+           'pre-MDL'                            AS p_3163,
+           'post-MDL (filed 2024-02-02)'        AS p_3094
+    UNION ALL SELECT '2025Q4', 2,
+           'MDL quarter (filed 2025-12-15)',    'post-MDL (filed 2024-02-02)'
+    UNION ALL SELECT '2026Q1', 3,
+           'post-MDL',                          'post-MDL (filed 2024-02-02)'
+    UNION ALL SELECT '2026Q2', 4,
+           'post-MDL',                          'post-MDL (filed 2024-02-02)'
 ),
 by_quarter AS (
     SELECT d.cohort_id,
            d.cohort,
            q.quarter                AS slice,
-           q.period_vs_mdl,
+           m.mdl_docket,
+           CASE WHEN m.has_period = 0 THEN 'n/a - see mdl_docket'
+                WHEN d.cohort_id  = 1 THEN q.p_3163
+                ELSE q.p_3094
+           END                      AS period_vs_mdl,
            o.occp_cod,
            o.reporter_label,
            o.reporter_group,
@@ -331,6 +479,7 @@ by_quarter AS (
     FROM       cohort_dim d
     CROSS JOIN qtr_dim    q
     CROSS JOIN occp_ref   o
+    JOIN       cohort_mdl m ON m.cohort_id = d.cohort_id
     LEFT JOIN  cohort_qtr_total t ON t.cohort_id = d.cohort_id
                                  AND t.quarter   = q.quarter
     LEFT JOIN  counted    c ON c.cohort_id = d.cohort_id
@@ -341,6 +490,7 @@ by_quarter AS (
 SELECT cohort_id,
        cohort,
        slice,
+       mdl_docket,
        period_vs_mdl,
        occp_cod,
        reporter_label,
