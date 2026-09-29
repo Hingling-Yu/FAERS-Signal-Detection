@@ -55,7 +55,7 @@ Tirzepatide: PRR 3.8 on 10,111 cases, 14.4% of its cohort. Semaglutide: PRR 1.00
 
 ### 3. Gastroparesis: litigation-driven reporting, now measured
 
-Gastroparesis PTs account for 24.2% of all dulaglutide reports (PRR 81), against 5.9% for semaglutide. Reporter occupation identifies the channel these reports arrived through: lawyers filed 73.7% of the 974 cases, against 21.4% of all dulaglutide cases and 1.2% across FAERS. The share runs between 38 and 184 times the FAERS baseline in every quarter of the window.
+Gastroparesis PTs account for 24.2% of all dulaglutide reports (PRR 81), against 5.9% for semaglutide. Reporter occupation shows who first reported these cases: lawyers filed 73.7% of the 974 cases, against 21.4% of all dulaglutide cases and 1.2% across FAERS. The share runs between 38 and 184 times the FAERS baseline in every quarter of the window.
 
 MDL 3094, which covers gastrointestinal injury claims and names Trulicity, was filed on February 2, 2024, about 18 months before this window opens. Every quarter here is a litigation-period quarter, so the data can show that lawyer filing dominates throughout, and it cannot show what dulaglutide gastroparesis reporting looked like beforehand. One caveat on the quarterly figures: `occp_cod` is blank on 72% of 2026Q2 cases against 17% in 2025Q3, so shares in the last quarter are deflated. The PRR reflects reporting volume, so it should not be read as a comparative risk ranking.
 
@@ -84,7 +84,7 @@ Among elderly semaglutide users (≥ 65), PRR for increased appetite is 2.4x hig
 ![Temporal tracking storypoint](screenshots/sp5_trends.png)
 *Storypoint 5 shows quarterly PRR rank for nine selected clinical signals and each signal's velocity against its latest PRR.*
 
-**Litigation distorts spontaneous reporting.** Gastroparesis on dulaglutide is the clearest example: lawyers filed 73.7% of those cases, against 1.2% across FAERS. Semaglutide NAION shows the opposite pattern at 1.9% lawyer-filed and 41.0% health-professional-filed, which is a useful contrast because both events sit next to active litigation. Reporter occupation gives a floor for the litigation effect. It identifies only the reports a lawyer sent to FDA directly, and an attorney-solicited report filed by the patient is recorded as a consumer report.
+**Litigation distorts spontaneous reporting.** Gastroparesis on dulaglutide is the clearest example: lawyers filed 73.7% of those cases, against 1.2% across FAERS. Semaglutide NAION shows the opposite pattern at 1.9% lawyer-filed and 41.0% health-professional-filed, which is a useful contrast because both events sit next to active litigation.
 
 ## Technical Summary
 

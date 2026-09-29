@@ -85,13 +85,11 @@
 --
 --   It also draws no causal conclusion, and occp_cod = 'LW' is narrower than
 --   "litigation-related" in a way that governs how every number here can be
---   read. LW marks the reports a lawyer submitted DIRECTLY to FDA - that is
---   all it marks. An attorney-solicited report that reaches FDA through the
---   claimant or their treating physician is coded CN or MD and is invisible
---   to this field, as is any report routed through the manufacturer. So a
---   high LW share is strong evidence of litigation-channel reporting, while a
---   low one does not establish the absence of it: it bounds the directly
---   attributable portion only. Neither direction settles causation.
+--   read. occp_cod is the initial reporter's occupation, coded by whoever
+--   submits the report, which is usually the manufacturer, and manufacturers
+--   do not code it the same way. A high LW share is strong evidence of
+--   litigation-channel reporting. A low one does not establish its absence.
+--   Neither direction settles causation.
 --
 -- occp_cod values, and the two that are absent
 -- ---------------------------------------------------------------------------
@@ -187,33 +185,30 @@
 --
 -- What the numbers came out as - stated at the limit of what LW supports
 -- ---------------------------------------------------------------------------
---   Dulaglutide + gastroparesis, full window: 73.7% of cases were submitted
---   directly by a lawyer, against 21.4% for dulaglutide across all events,
+--   Dulaglutide + gastroparesis, full window: 73.7% of cases were
+--   lawyer-reported, against 21.4% for dulaglutide across all events,
 --   1.3% for the GLP-1 class and 1.2% for FAERS at large. By quarter the share
 --   is 87.3 / 93.8 / 60.2 / 97.8 percent, which is 38x to 184x the same
---   quarter's FAERS baseline throughout. Direct lawyer submission is the
---   dominant reporting channel for this drug-event pair in every quarter
---   observed. As set out above, all four quarters post-date MDL 3094, so these
---   figures describe a litigation-saturated window rather than a change across
---   the start of one.
+--   quarter's FAERS baseline throughout. Lawyer reporting dominates for this
+--   drug-event pair in every quarter observed. As set out above, all four
+--   quarters post-date MDL 3094, so these figures describe a
+--   litigation-saturated window rather than a change across the start of one.
 --
---   Semaglutide + NAION, full window: 1.9% of cases (12 of 627) came directly
---   from a lawyer, and 41.0% from a health professional, against 0.06% and
+--   Semaglutide + NAION, full window: 1.9% of cases (12 of 627) were
+--   lawyer-reported, and 41.0% from a health professional, against 0.06% and
 --   16.9% respectively for semaglutide across all events. By quarter the
 --   lawyer share runs 0.00 / 0.90 / 3.57 / 2.08 percent, peaking at 3.8x the
 --   same quarter's FAERS baseline in 2026Q1 - the first full quarter after
 --   MDL 3163 - then falling to 0.8x, below baseline, in 2026Q2.
 --
---   What that supports, precisely: few NAION reports were submitted directly
---   by lawyers, and the health-professional share is more than twice that of
---   semaglutide reports generally. What it does NOT support is a claim that
---   the NAION signal is clinician-driven rather than litigation-driven. LW
---   captures direct lawyer submissions only, so attorney-solicited reports
---   filed by the claimant or their physician sit inside the CN and MD counts
---   and cannot be separated out with this field. A low LW share bounds the
---   directly attributable portion; it does not characterise the signal's
---   origin. Separating those channels would need rpsr (report source) or the
---   litigation-referral flags, which the FAERS public extract does not carry.
+--   What that supports, precisely: few NAION reports were lawyer-reported,
+--   and the health-professional share is more than twice that of semaglutide
+--   reports generally. What it does NOT support is a claim that the NAION
+--   signal is clinician-driven rather than litigation-driven. A low LW share
+--   bounds the directly attributable portion; it does not
+--   characterise the signal's origin. Separating those channels would need
+--   rpsr (report source) or the litigation-referral flags, which the FAERS
+--   public extract does not carry.
 --
 -- Prerequisites
 --   sql/01_ddl.sql, sql/02_load.sql and section 3 of sql/03_queries.sql
