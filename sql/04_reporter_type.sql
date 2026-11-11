@@ -8,7 +8,9 @@
 --   statistic cannot tell the difference between a drug that causes an event
 --   and a plaintiff firm that files a batch of reports about it. The reporter
 --   occupation field is the cheapest available probe of that second
---   explanation: occp_cod = 'LW' marks a report submitted by a lawyer.
+--   explanation: occp_cod = 'LW' marks a report whose initial reporter was
+--   coded as a lawyer (occupation as coded by the submitter, not who
+--   submitted it).
 --
 --   A raw lawyer share is uninterpretable on its own - "8% of these cases
 --   came from lawyers" is only high or low against something. So the file
