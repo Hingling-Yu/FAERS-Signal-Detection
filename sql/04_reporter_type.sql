@@ -192,10 +192,11 @@
 --   reporter coded as lawyer, against 21.4% for dulaglutide across all
 --   events, 1.3% for the GLP-1 class and 1.2% for FAERS at large. By quarter
 --   the share is 87.3 / 93.8 / 60.2 / 97.8 percent, which is 38x to 184x the
---   same quarter's FAERS baseline throughout. Lawyer reporting dominates for
---   this drug-event pair in every quarter observed. As set out above, all
---   four quarters post-date MDL 3094, so these figures describe a
---   litigation-saturated window rather than a change across the start of one.
+--   same quarter's FAERS baseline throughout. Cases with the initial reporter
+--   coded as a lawyer dominate for this drug-event pair in every quarter
+--   observed. As set out above, all four quarters post-date MDL 3094, so
+--   these figures describe a litigation-saturated window rather than a
+--   change across the start of one.
 --
 --   Semaglutide + NAION, full window: 1.9% of cases (12 of 627) had the
 --   initial reporter coded as lawyer, and 41.0% as a health professional,
