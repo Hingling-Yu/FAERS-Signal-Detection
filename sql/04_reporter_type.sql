@@ -13,7 +13,8 @@
 --   submitted it).
 --
 --   A raw lawyer share is uninterpretable on its own - "8% of these cases
---   came from lawyers" is only high or low against something. So the file
+--   had the initial reporter coded as a lawyer" is only high or low against
+--   something. So the file
 --   reports six cohorts, two of interest and four as nested baselines:
 --
 --     1  SEMAGLUTIDE + NAION                  signal under scrutiny
@@ -187,30 +188,31 @@
 --
 -- What the numbers came out as - stated at the limit of what LW supports
 -- ---------------------------------------------------------------------------
---   Dulaglutide + gastroparesis, full window: 73.7% of cases were
---   lawyer-reported, against 21.4% for dulaglutide across all events,
---   1.3% for the GLP-1 class and 1.2% for FAERS at large. By quarter the share
---   is 87.3 / 93.8 / 60.2 / 97.8 percent, which is 38x to 184x the same
---   quarter's FAERS baseline throughout. Lawyer reporting dominates for this
---   drug-event pair in every quarter observed. As set out above, all four
---   quarters post-date MDL 3094, so these figures describe a
+--   Dulaglutide + gastroparesis, full window: 73.7% of cases had the initial
+--   reporter coded as lawyer, against 21.4% for dulaglutide across all
+--   events, 1.3% for the GLP-1 class and 1.2% for FAERS at large. By quarter
+--   the share is 87.3 / 93.8 / 60.2 / 97.8 percent, which is 38x to 184x the
+--   same quarter's FAERS baseline throughout. Lawyer reporting dominates for
+--   this drug-event pair in every quarter observed. As set out above, all
+--   four quarters post-date MDL 3094, so these figures describe a
 --   litigation-saturated window rather than a change across the start of one.
 --
---   Semaglutide + NAION, full window: 1.9% of cases (12 of 627) were
---   lawyer-reported, and 41.0% from a health professional, against 0.06% and
---   16.9% respectively for semaglutide across all events. By quarter the
---   lawyer share runs 0.00 / 0.90 / 3.57 / 2.08 percent, peaking at 3.8x the
---   same quarter's FAERS baseline in 2026Q1 - the first full quarter after
---   MDL 3163 - then falling to 0.8x, below baseline, in 2026Q2.
+--   Semaglutide + NAION, full window: 1.9% of cases (12 of 627) had the
+--   initial reporter coded as lawyer, and 41.0% as a health professional,
+--   against 0.06% and 16.9% respectively for semaglutide across all events.
+--   By quarter the lawyer share runs 0.00 / 0.90 / 3.57 / 2.08 percent,
+--   peaking at 3.8x the same quarter's FAERS baseline in 2026Q1 - the first
+--   full quarter after MDL 3163 - then falling to 0.8x, below baseline, in
+--   2026Q2.
 --
---   What that supports, precisely: few NAION reports were lawyer-reported,
---   and the health-professional share is more than twice that of semaglutide
---   reports generally. What it does NOT support is a claim that the NAION
---   signal is clinician-driven rather than litigation-driven. A low LW share
---   bounds the directly attributable portion; it does not
---   characterise the signal's origin. Separating those channels would need
---   rpsr (report source) or the litigation-referral flags, which the FAERS
---   public extract does not carry.
+--   What that supports, precisely: few NAION reports had the initial reporter
+--   coded as lawyer, and the health-professional share is more than twice
+--   that of semaglutide reports generally. What it does NOT support is a
+--   claim that the NAION signal is clinician-driven rather than
+--   litigation-driven. A low LW share bounds the directly attributable
+--   portion; it does not characterise the signal's origin. Separating those
+--   channels would need rpsr (report source) or the litigation-referral
+--   flags, which the FAERS public extract does not carry.
 --
 -- Prerequisites
 --   sql/01_ddl.sql, sql/02_load.sql and section 3 of sql/03_queries.sql

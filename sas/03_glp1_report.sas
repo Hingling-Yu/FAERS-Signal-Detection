@@ -1765,9 +1765,10 @@ data work.report_crown_jewels;
             || "reporting distributes, and dulaglutide is the molecule named in "
             || "US gastroparesis litigation running across this window. The PRR "
             || "is correct and reading it as a risk ranking against the other "
-            || "three would be wrong. Confirming the mechanism needs reporter "
-            || "occupation, which this pipeline does not carry through to the "
-            || "GLP-1 cohort - it is a stated limitation, not a finding.";
+            || "three would be wrong. Reporter occupation check "
+            || "(sql/04_reporter_type.sql): most of these cases had the "
+            || "initial reporter coded as a lawyer, far above the FAERS-wide "
+            || "share, suggesting possible stimulated reporting.";
     evidence = 'Table 3c GASTROPARESIS row; glp1_compare_overview.csv';
     output;
 
